@@ -281,6 +281,10 @@ async function searchFood(query) {
     const res  = await fetch(`/api/food-search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
 
+    if (data.error) {
+      box.innerHTML = `<div class="kal-result-empty"><i class="bi bi-exclamation-circle"></i> Chyba pri načítaní. Skúste to znova.</div>`;
+      return;
+    }
     if (!data.products || data.products.length === 0) {
       box.innerHTML = '<div class="kal-result-empty">Žiadne výsledky. Skúste iný výraz.</div>';
       return;
