@@ -95,13 +95,17 @@ def api_food_search():
         return jsonify({"products": []})
     try:
         resp = requests.get(
-            "https://world.openfoodfacts.org/api/v2/search",
+            "https://world.openfoodfacts.org/cgi/search.pl",
             params={
                 "search_terms": query,
+                "search_simple": 1,
+                "action": "process",
+                "json": 1,
                 "page_size": 12,
                 "fields": "product_name,nutriments,brands,image_front_thumb_url",
             },
-            timeout=10,
+            headers={"User-Agent": "MaglenTrainingCenter/1.0 (contact@maglentrainingcenter.sk)"},
+            timeout=15,
         )
         resp.raise_for_status()
         raw = resp.json()
