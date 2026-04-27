@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from datetime import datetime, timedelta
 import random
+import os
 
 app = Flask(__name__)
 
@@ -87,4 +88,5 @@ def api_update_plan():
     return jsonify({"status": "ok", "message": "Plan updated!"})
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
