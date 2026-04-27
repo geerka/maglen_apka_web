@@ -95,16 +95,13 @@ def api_food_search():
         return jsonify({"products": []})
     try:
         resp = requests.get(
-            "https://world.openfoodfacts.org/cgi/search.pl",
+            "https://world.openfoodfacts.org/api/v2/search",
             params={
                 "search_terms": query,
-                "search_simple": 1,
-                "action": "process",
-                "json": 1,
                 "page_size": 12,
-                "fields": "product_name,nutriments,quantity,brands",
+                "fields": "product_name,nutriments,brands,image_front_thumb_url",
             },
-            timeout=60,
+            timeout=10,
         )
         resp.raise_for_status()
         raw = resp.json()
@@ -121,6 +118,7 @@ def api_food_search():
                 "carbs":    round(float(n.get("carbohydrates_100g") or 0), 1),
                 "proteins": round(float(n.get("proteins_100g") or 0), 1),
                 "fats":     round(float(n.get("fat_100g") or 0), 1),
+                "image":    p.get("image_front_thumb_url") or "",
             })
         return jsonify({"products": products})
     except requests.exceptions.Timeout:

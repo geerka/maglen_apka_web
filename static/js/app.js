@@ -286,18 +286,24 @@ async function searchFood(query) {
       return;
     }
 
-    box.innerHTML = data.products.slice(0, 10).map((p, i) =>
-      `<div class="kal-result-item" data-idx="${i}">
-         <div class="kal-result-name">${escHtml(p.name)}${p.brand ? ` <span class="kal-result-brand">· ${escHtml(p.brand)}</span>` : ''}</div>
-         <div class="kal-result-macros">
-           <span class="kal-tag kcal">${p.calories} kcal</span>
-           <span class="kal-tag carbs">Sachar: ${p.carbs}&thinsp;g</span>
-           <span class="kal-tag prot">Bielk: ${p.proteins}&thinsp;g</span>
-           <span class="kal-tag fat">Tuky: ${p.fats}&thinsp;g</span>
-           <small style="color:var(--muted);font-size:.6rem">/ 100&thinsp;g</small>
+    box.innerHTML = data.products.slice(0, 10).map((p, i) => {
+      const thumb = p.image
+        ? `<img class="kal-result-thumb" src="${escHtml(p.image)}" alt="" loading="lazy">`
+        : `<div class="kal-result-thumb kal-result-thumb--empty"><i class="bi bi-egg-fried"></i></div>`;
+      return `<div class="kal-result-item" data-idx="${i}">
+         ${thumb}
+         <div class="kal-result-body">
+           <div class="kal-result-name">${escHtml(p.name)}${p.brand ? ` <span class="kal-result-brand">· ${escHtml(p.brand)}</span>` : ''}</div>
+           <div class="kal-result-macros">
+             <span class="kal-tag kcal">${p.calories} kcal</span>
+             <span class="kal-tag carbs">Sachar: ${p.carbs}&thinsp;g</span>
+             <span class="kal-tag prot">Bielk: ${p.proteins}&thinsp;g</span>
+             <span class="kal-tag fat">Tuky: ${p.fats}&thinsp;g</span>
+             <small style="color:var(--muted);font-size:.6rem">/ 100&thinsp;g</small>
+           </div>
          </div>
-       </div>`
-    ).join('');
+       </div>`;
+    }).join('');
 
     box.querySelectorAll('.kal-result-item').forEach((el, i) => {
       el.addEventListener('click', () => {
@@ -352,6 +358,7 @@ function addToLog(product, grams) {
   foodLog.push({
     id:       Date.now(),
     name:     product.name,
+    image:    product.image || "",
     grams,
     calories: Math.round(product.calories * f * 10) / 10,
     carbs:    Math.round(product.carbs    * f * 10) / 10,
@@ -376,9 +383,12 @@ function renderLog() {
     if (emptyRow) emptyRow.style.display = 'none';
     foodLog.forEach(item => {
       const tr = document.createElement('tr');
+      const thumb = item.image
+        ? `<img class="kal-log-thumb" src="${escHtml(item.image)}" alt="" loading="lazy">`
+        : `<span class="kal-log-thumb kal-log-thumb--empty"><i class="bi bi-egg-fried"></i></span>`;
       tr.className = 'food-log-row';
       tr.innerHTML = `
-        <td class="kal-food-name">${escHtml(item.name)}</td>
+        <td class="kal-food-name">${thumb}${escHtml(item.name)}</td>
         <td>${item.grams}&thinsp;g</td>
         <td class="kal-kcal-cell">${item.calories}</td>
         <td>${item.carbs}&thinsp;g</td>
