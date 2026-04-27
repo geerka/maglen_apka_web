@@ -283,6 +283,202 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
+/* ============================================================
+   VÝŽIVA – Kalorické tabuľky
+   ============================================================ */
+
+/* Sub-tabs inside Výživa panel */
+.vyzip-subtabs {
+  display: flex; gap: 0;
+  background: #fff; border-bottom: 2px solid var(--border);
+  padding: 0 16px; flex-shrink: 0;
+}
+.vyzip-subtab {
+  font-size: .73rem; font-weight: 600; color: var(--muted);
+  padding: 8px 14px; background: none; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  cursor: pointer; transition: color .15s; white-space: nowrap;
+}
+.vyzip-subtab.active, .vyzip-subtab:hover {
+  color: var(--blue); border-bottom-color: var(--blue);
+}
+
+.vyzip-section { display: none; }
+.vyzip-section.active { display: block; }
+
+/* Main container */
+.kal-container { padding: 14px 15px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Macro summary cards ── */
+.kal-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.kal-macro-card {
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  padding: 11px 12px; display: flex; flex-direction: column;
+  align-items: center; gap: 3px; transition: box-shadow .15s;
+}
+.kal-macro-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.kal-macro-icon { font-size: 1.2rem; margin-bottom: 2px; }
+.kal-macro-value {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 1.35rem; color: var(--text); line-height: 1;
+}
+.kal-macro-label { font-size: .62rem; font-weight: 600; color: var(--muted); text-align: center; }
+
+.kal-calories .kal-macro-icon { color: var(--orange); }
+.kal-calories .kal-macro-value { color: var(--orange); }
+.kal-carbs   .kal-macro-icon { color: #F4A261; }
+.kal-carbs   .kal-macro-value { color: #F4A261; }
+.kal-proteins .kal-macro-icon { color: var(--blue); }
+.kal-proteins .kal-macro-value { color: var(--blue); }
+.kal-fats    .kal-macro-icon { color: var(--teal); }
+.kal-fats    .kal-macro-value { color: var(--teal); }
+
+/* ── Search ── */
+.kal-search-wrap {
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  overflow: visible; position: relative;
+}
+.kal-search-row { padding: 10px 12px; }
+.kal-search-inner {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 8px; padding: 0 8px 0 12px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.kal-search-inner:focus-within {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,127,191,.12);
+}
+.kal-search-icon { color: var(--muted); font-size: .9rem; flex-shrink: 0; }
+.kal-search-input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-family: 'DM Sans', sans-serif; font-size: .8rem; color: var(--text);
+  padding: 8px 4px; min-width: 0;
+}
+.kal-search-input::placeholder { color: var(--muted); }
+.kal-search-btn {
+  flex-shrink: 0; background: var(--blue); color: #fff; border: none;
+  border-radius: 6px; padding: 6px 14px; font-size: .73rem; font-weight: 600;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: background .15s, transform .1s;
+}
+.kal-search-btn:hover { background: var(--blue-lt); transform: translateY(-1px); }
+
+/* Results dropdown */
+.kal-results-box {
+  position: absolute; left: 0; right: 0; top: 100%;
+  background: var(--card); border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.11); z-index: 50;
+  max-height: 280px; overflow-y: auto;
+}
+.kal-result-item {
+  padding: 9px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.kal-result-item:last-child { border-bottom: none; }
+.kal-result-item:hover { background: #EEF5FB; }
+.kal-result-name {
+  font-size: .8rem; font-weight: 600; color: var(--text); margin-bottom: 3px;
+}
+.kal-result-brand { font-weight: 400; color: var(--muted); }
+.kal-result-macros { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.kal-tag {
+  font-size: .62rem; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; white-space: nowrap;
+}
+.kal-tag.kcal    { background: rgba(231,111,81,.12);  color: var(--orange); }
+.kal-tag.carbs   { background: rgba(244,162,97,.12);  color: #c47d2e; }
+.kal-tag.prot    { background: rgba(47,127,191,.12);  color: var(--blue-dark); }
+.kal-tag.fat     { background: rgba(42,157,143,.12);  color: var(--teal); }
+.kal-result-loading,
+.kal-result-empty { padding: 14px; font-size: .78rem; color: var(--muted); text-align: center; }
+
+/* Add food inline panel */
+.kal-add-panel {
+  padding: 12px 14px; border-top: 1px solid var(--border);
+  background: #F8FBFF;
+}
+.kal-add-name {
+  font-size: .84rem; font-weight: 700; color: var(--text); margin-bottom: 5px;
+}
+.kal-add-macros { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; align-items: center; }
+.kal-add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kal-add-label { font-size: .74rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.kal-qty-input {
+  width: 90px; border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 6px 10px; font-size: .8rem; font-family: 'DM Sans', sans-serif;
+  color: var(--text); background: #fff; outline: none;
+  transition: border-color .15s;
+}
+.kal-qty-input:focus { border-color: var(--blue); }
+.kal-confirm-btn { width: auto !important; padding: 7px 16px !important; font-size: .73rem !important; }
+.kal-cancel-btn  { width: auto !important; padding: 6px 12px !important; font-size: .73rem !important; }
+
+/* ── Food log table ── */
+.kal-log-card {
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.kal-log-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 13px; border-bottom: 1px solid var(--border);
+  background: #FAFBFD;
+}
+.kal-log-title {
+  font-size: .76rem; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.kal-log-title i { color: var(--blue); }
+.kal-clear-btn { width: auto !important; padding: 4px 12px !important; font-size: .67rem !important; }
+
+.kal-table-wrap { overflow-x: auto; }
+.kal-table {
+  width: 100%; border-collapse: collapse; font-size: .74rem;
+}
+.kal-table thead th {
+  padding: 7px 11px; font-size: .65rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+  background: #FAFBFD; text-align: left;
+}
+.kal-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+.kal-table tbody tr:last-child { border-bottom: none; }
+.kal-table tbody tr:hover { background: #F5F8FD; }
+.kal-table td {
+  padding: 8px 11px; color: var(--text); white-space: nowrap;
+}
+.kal-food-name { font-weight: 600; white-space: normal !important; max-width: 180px; }
+.kal-kcal-cell { font-weight: 700; color: var(--orange); }
+
+.kal-remove-btn {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: .85rem; padding: 2px 5px; border-radius: 5px;
+  transition: color .12s, background .12s;
+}
+.kal-remove-btn:hover { color: #dc3545; background: rgba(220,53,69,.08); }
+
+.kal-empty-row {
+  text-align: center; padding: 35px 20px !important;
+  color: var(--muted);
+}
+.kal-empty-row i { font-size: 2rem; opacity: .25; display: block; margin-bottom: 6px; }
+.kal-empty-row p { font-size: .78rem; margin: 0; }
+
+/* Responsive */
+@media (max-width: 780px) {
+  .kal-summary { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 500px) {
+  .kal-add-row { flex-direction: column; align-items: stretch; }
+  .kal-qty-input { width: 100%; }
+}
+
 /* Responsive */
 @media (max-width: 1150px) {
   .app-body { grid-template-columns: 340px 1fr; }

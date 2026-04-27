@@ -218,6 +218,212 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(renderSessions, 120);
 });
 
+/* ============================================================
+   VÝŽIVA – Kalorické tabuľky
+   ============================================================ */
+
+let foodLog   = [];       // { id, name, grams, calories, carbs, proteins, fats }
+let pendingProduct = null; // product awaiting quantity confirmation
+
+/* ── Sub-tab switching (inside Výživa) ──────────────────── */
+document.querySelectorAll('.vyzip-subtab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.subtab;
+    document.querySelectorAll('.vyzip-subtab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.vyzip-section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    const section = document.getElementById(target);
+    if (section) section.classList.add('active');
+  });
+});
+
+/* ── Debounced auto-search ───────────────────────────────── */
+let searchTimer;
+document.getElementById('foodSearchInput')?.addEventListener('input', function () {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  if (!q) {
+    hideResults();
+    return;
+  }
+  searchTimer = setTimeout(() => searchFood(q), 450);
+});
+
+document.getElementById('foodSearchInput')?.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { clearTimeout(searchTimer); searchFood(this.value.trim()); }
+  if (e.key === 'Escape') hideResults();
+});
+
+document.getElementById('foodSearchBtn')?.addEventListener('click', () => {
+  const q = document.getElementById('foodSearchInput')?.value.trim();
+  if (q) searchFood(q);
+});
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('kalSearchWrap');
+  if (wrap && !wrap.contains(e.target)) hideResults();
+});
+
+function hideResults() {
+  const box = document.getElementById('foodSearchResults');
+  if (box) box.style.display = 'none';
+}
+
+/* ── API call to /api/food-search ───────────────────────── */
+async function searchFood(query) {
+  if (!query) return;
+  const box = document.getElementById('foodSearchResults');
+  if (!box) return;
+  box.innerHTML = '<div class="kal-result-loading"><i class="bi bi-hourglass-split"></i> Hľadám…</div>';
+  box.style.display = 'block';
+
+  try {
+    const res  = await fetch(`/api/food-search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+
+    if (!data.products || data.products.length === 0) {
+      box.innerHTML = '<div class="kal-result-empty">Žiadne výsledky. Skúste iný výraz.</div>';
+      return;
+    }
+
+    box.innerHTML = data.products.slice(0, 10).map((p, i) =>
+      `<div class="kal-result-item" data-idx="${i}">
+         <div class="kal-result-name">${escHtml(p.name)}${p.brand ? ` <span class="kal-result-brand">· ${escHtml(p.brand)}</span>` : ''}</div>
+         <div class="kal-result-macros">
+           <span class="kal-tag kcal">${p.calories} kcal</span>
+           <span class="kal-tag carbs">Sachar: ${p.carbs}&thinsp;g</span>
+           <span class="kal-tag prot">Bielk: ${p.proteins}&thinsp;g</span>
+           <span class="kal-tag fat">Tuky: ${p.fats}&thinsp;g</span>
+           <small style="color:var(--muted);font-size:.6rem">/ 100&thinsp;g</small>
+         </div>
+       </div>`
+    ).join('');
+
+    box.querySelectorAll('.kal-result-item').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        showAddPanel(data.products[i]);
+        hideResults();
+      });
+    });
+  } catch {
+    box.innerHTML = '<div class="kal-result-empty">Chyba pri načítaní. Skúste to znova.</div>';
+  }
+}
+
+/* ── Show inline "add" panel ─────────────────────────────── */
+function showAddPanel(product) {
+  pendingProduct = product;
+  const panel = document.getElementById('addFoodPanel');
+  document.getElementById('addFoodName').textContent = product.name;
+  document.getElementById('addFoodMacros').innerHTML =
+    `<span class="kal-tag kcal">${product.calories} kcal</span>
+     <span class="kal-tag carbs">Sachar: ${product.carbs}&thinsp;g</span>
+     <span class="kal-tag prot">Bielk: ${product.proteins}&thinsp;g</span>
+     <span class="kal-tag fat">Tuky: ${product.fats}&thinsp;g</span>
+     <small style="color:var(--muted);font-size:.6rem">/ 100&thinsp;g</small>`;
+  const qtyInput = document.getElementById('qtyInput');
+  if (qtyInput) qtyInput.value = 100;
+  panel.style.display = 'block';
+  qtyInput?.focus();
+  document.getElementById('foodSearchInput').value = '';
+}
+
+document.getElementById('confirmAddBtn')?.addEventListener('click', () => {
+  if (!pendingProduct) return;
+  const grams = Math.max(1, parseFloat(document.getElementById('qtyInput')?.value) || 100);
+  addToLog(pendingProduct, grams);
+  pendingProduct = null;
+  document.getElementById('addFoodPanel').style.display = 'none';
+});
+
+document.getElementById('cancelAddBtn')?.addEventListener('click', () => {
+  pendingProduct = null;
+  document.getElementById('addFoodPanel').style.display = 'none';
+});
+
+document.getElementById('qtyInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('confirmAddBtn')?.click();
+  if (e.key === 'Escape') document.getElementById('cancelAddBtn')?.click();
+});
+
+/* ── Add food entry to log ───────────────────────────────── */
+function addToLog(product, grams) {
+  const f = grams / 100;
+  foodLog.push({
+    id:       Date.now(),
+    name:     product.name,
+    grams,
+    calories: Math.round(product.calories * f * 10) / 10,
+    carbs:    Math.round(product.carbs    * f * 10) / 10,
+    proteins: Math.round(product.proteins * f * 10) / 10,
+    fats:     Math.round(product.fats     * f * 10) / 10,
+  });
+  renderLog();
+}
+
+/* ── Render food log table ───────────────────────────────── */
+function renderLog() {
+  const tbody    = document.getElementById('foodLogBody');
+  const emptyRow = document.getElementById('emptyLogRow');
+  if (!tbody) return;
+
+  // Remove all food rows (keep emptyLogRow)
+  tbody.querySelectorAll('.food-log-row').forEach(r => r.remove());
+
+  if (foodLog.length === 0) {
+    if (emptyRow) emptyRow.style.display = '';
+  } else {
+    if (emptyRow) emptyRow.style.display = 'none';
+    foodLog.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.className = 'food-log-row';
+      tr.innerHTML = `
+        <td class="kal-food-name">${escHtml(item.name)}</td>
+        <td>${item.grams}&thinsp;g</td>
+        <td class="kal-kcal-cell">${item.calories}</td>
+        <td>${item.carbs}&thinsp;g</td>
+        <td>${item.proteins}&thinsp;g</td>
+        <td>${item.fats}&thinsp;g</td>
+        <td><button class="kal-remove-btn" data-id="${item.id}" title="Odstrániť"><i class="bi bi-x-lg"></i></button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.kal-remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        foodLog = foodLog.filter(f => f.id !== parseInt(btn.dataset.id, 10));
+        renderLog();
+      });
+    });
+  }
+
+  // Update summary totals
+  const totals = foodLog.reduce(
+    (a, f) => ({ calories: a.calories + f.calories, carbs: a.carbs + f.carbs, proteins: a.proteins + f.proteins, fats: a.fats + f.fats }),
+    { calories: 0, carbs: 0, proteins: 0, fats: 0 }
+  );
+  document.getElementById('totalCalories').textContent = Math.round(totals.calories);
+  document.getElementById('totalCarbs').textContent    = (Math.round(totals.carbs    * 10) / 10).toFixed(1);
+  document.getElementById('totalProteins').textContent = (Math.round(totals.proteins * 10) / 10).toFixed(1);
+  document.getElementById('totalFats').textContent     = (Math.round(totals.fats     * 10) / 10).toFixed(1);
+}
+
+document.getElementById('clearLogBtn')?.addEventListener('click', () => {
+  if (foodLog.length === 0) return;
+  foodLog = [];
+  renderLog();
+  showToast('Jedálniček vyčistený');
+});
+
+/* ── HTML escape helper ──────────────────────────────────── */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /* ── Init ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   // Chart.js needs a visible canvas → slight delay ensures layout is done
