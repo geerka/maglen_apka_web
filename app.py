@@ -14,9 +14,9 @@ client = {
 }
 
 retests = [
-    {"date": "25.2.4", "weeks": "12 week"},
-    {"date": "23.3.4", "weeks": "12 week"},
-    {"date": "25.04.", "weeks": "12 week"},
+    {"date": "25.2.4", "tyzdne": "12 tyzdnov"},
+    {"date": "23.3.4", "tyzdne": "12 tyzdnov"},
+    {"date": "25.04.", "tyzdne": "12 tyzdnov"},
 ]
 
 inbody_data = {
@@ -40,14 +40,14 @@ def get_week_days():
     ]
 
 SESSIONS = [
-    {"id":1,"title":"Personal Training","start":"08:00","end":"10:00","day":0,"color":"blue"},
-    {"id":2,"title":"Personal Training","start":"09:00","end":"10:30","day":2,"color":"blue"},
-    {"id":3,"title":"Personal Training","start":"10:00","end":"11:30","day":1,"color":"blue"},
-    {"id":4,"title":"Group Tréningy","start":"11:30","end":"12:30","day":1,"color":"teal"},
-    {"id":5,"title":"Olym. Tréningy","start":"13:00","end":"14:00","day":1,"color":"orange"},
-    {"id":6,"title":"Group Tréningy","start":"13:00","end":"14:00","day":2,"color":"teal"},
-    {"id":7,"title":"Biatlon Tréningy","start":"15:00","end":"16:00","day":2,"color":"orange"},
-    {"id":8,"title":"Personal Tréningy","start":"15:30","end":"17:00","day":1,"color":"blue"},
+    {"id":1,"title":"Osobny  Training","start":"08:00","end":"10:00","day":0,"color":"blue"},
+    {"id":2,"title":"Osobny Training","start":"09:00","end":"10:30","day":2,"color":"blue"},
+    {"id":3,"title":"Osobny Training","start":"10:00","end":"11:30","day":1,"color":"blue"},
+    {"id":4,"title":"Skupinovy Tréningy","start":"11:30","end":"12:30","day":1,"color":"teal"},
+    {"id":5,"title":"vzpieranie Tréningy","start":"13:00","end":"14:00","day":1,"color":"orange"},
+    {"id":6,"title":"Osobny Tréningy","start":"13:00","end":"14:00","day":2,"color":"teal"},
+    {"id":7,"title":"Osobny Tréningy","start":"15:00","end":"16:00","day":2,"color":"blue"},
+    {"id":8,"title":"Skupinovy Tréningy","start":"15:30","end":"17:00","day":1,"color":"teal"},
 ]
 
 online_coaching = [
