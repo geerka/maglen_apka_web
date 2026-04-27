@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 from datetime import datetime, timedelta
 import random
 import os
+import requests
 
 app = Flask(__name__)
 
@@ -86,6 +87,48 @@ def api_retest():
 @app.route("/api/update_plan", methods=["POST"])
 def api_update_plan():
     return jsonify({"status": "ok", "message": "Plan updated!"})
+
+@app.route("/api/food-search")
+def api_food_search():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"products": []})
+    try:
+        resp = requests.get(
+            "https://world.openfoodfacts.org/cgi/search.pl",
+            params={
+                "search_terms": query,
+                "search_simple": 1,
+                "action": "process",
+                "json": 1,
+                "page_size": 12,
+                "fields": "product_name,nutriments,quantity,brands",
+            },
+            timeout=8,
+        )
+        resp.raise_for_status()
+        raw = resp.json()
+        products = []
+        for p in raw.get("products", []):
+            name = (p.get("product_name") or "").strip()
+            if not name:
+                continue
+            n = p.get("nutriments") or {}
+            products.append({
+                "name": name,
+                "brand": (p.get("brands") or "").split(",")[0].strip(),
+                "calories": round(float(n.get("energy-kcal_100g") or 0), 1),
+                "carbs":    round(float(n.get("carbohydrates_100g") or 0), 1),
+                "proteins": round(float(n.get("proteins_100g") or 0), 1),
+                "fats":     round(float(n.get("fat_100g") or 0), 1),
+            })
+        return jsonify({"products": products})
+    except requests.exceptions.Timeout:
+        app.logger.warning("Food search timed out for query: %s", query)
+        return jsonify({"products": [], "error": "Food search request timed out"}), 504
+    except Exception as exc:
+        app.logger.error("Food search error: %s", exc)
+        return jsonify({"products": [], "error": "Failed to fetch food data"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))

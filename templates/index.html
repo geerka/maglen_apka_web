@@ -211,11 +211,115 @@
 
       <!-- ---- VÝŽIVA TAB ---- -->
       <div class="tab-panel" id="vyzivTab">
-        <div class="empty-state">
-          <i class="bi bi-egg-fried"></i>
-          <p>Výživový plán a jedálniček klienta.</p>
+
+        <!-- Sub-tabs -->
+        <div class="vyzip-subtabs">
+          <button class="vyzip-subtab active" data-subtab="kalorickeTab">Kalorické tabuľky</button>
+          <button class="vyzip-subtab" data-subtab="planTab">Výživový plán</button>
         </div>
-      </div>
+
+        <!-- ===== KALORICKÉ TABUĽKY ===== -->
+        <div class="vyzip-section active" id="kalorickeTab">
+          <div class="kal-container">
+
+            <!-- Summary macro cards -->
+            <div class="kal-summary">
+              <div class="kal-macro-card kal-calories">
+                <div class="kal-macro-icon"><i class="bi bi-fire"></i></div>
+                <div class="kal-macro-value" id="totalCalories">0</div>
+                <div class="kal-macro-label">Kalórie (kcal)</div>
+              </div>
+              <div class="kal-macro-card kal-carbs">
+                <div class="kal-macro-icon"><i class="bi bi-pentagon-fill"></i></div>
+                <div class="kal-macro-value" id="totalCarbs">0</div>
+                <div class="kal-macro-label">Sacharidy (g)</div>
+              </div>
+              <div class="kal-macro-card kal-proteins">
+                <div class="kal-macro-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                <div class="kal-macro-value" id="totalProteins">0</div>
+                <div class="kal-macro-label">Bielkoviny (g)</div>
+              </div>
+              <div class="kal-macro-card kal-fats">
+                <div class="kal-macro-icon"><i class="bi bi-droplet-fill"></i></div>
+                <div class="kal-macro-value" id="totalFats">0</div>
+                <div class="kal-macro-label">Tuky (g)</div>
+              </div>
+            </div>
+
+            <!-- Search -->
+            <div class="kal-search-wrap" id="kalSearchWrap">
+              <div class="kal-search-row">
+                <div class="kal-search-inner">
+                  <i class="bi bi-search kal-search-icon"></i>
+                  <input type="text" id="foodSearchInput" class="kal-search-input"
+                         placeholder="Vyhľadať potravinu (napr. kuracie prsia, jablko, ryža…)" autocomplete="off">
+                  <button class="kal-search-btn" id="foodSearchBtn">
+                    <i class="bi bi-search"></i> Hľadať
+                  </button>
+                </div>
+              </div>
+              <!-- Results dropdown -->
+              <div class="kal-results-box" id="foodSearchResults" style="display:none;"></div>
+              <!-- Add-food inline panel -->
+              <div class="kal-add-panel" id="addFoodPanel" style="display:none;">
+                <div class="kal-add-name" id="addFoodName"></div>
+                <div class="kal-add-macros" id="addFoodMacros"></div>
+                <div class="kal-add-row">
+                  <label class="kal-add-label">Množstvo (g):</label>
+                  <input type="number" id="qtyInput" class="kal-qty-input" value="100" min="1" max="9999">
+                  <button class="btn-diag-blue kal-confirm-btn" id="confirmAddBtn">
+                    <i class="bi bi-plus-lg"></i> Pridať
+                  </button>
+                  <button class="btn-diag-outline kal-cancel-btn" id="cancelAddBtn">Zrušiť</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Food log -->
+            <div class="kal-log-card">
+              <div class="kal-log-header">
+                <span class="kal-log-title"><i class="bi bi-journal-check"></i> Denný jedálniček</span>
+                <button class="btn-diag-outline kal-clear-btn" id="clearLogBtn">
+                  <i class="bi bi-trash3"></i> Vyčistiť
+                </button>
+              </div>
+              <div class="kal-table-wrap">
+                <table class="kal-table">
+                  <thead>
+                    <tr>
+                      <th>Potravina</th>
+                      <th>Množstvo</th>
+                      <th>Kcal</th>
+                      <th>Sacharidy</th>
+                      <th>Bielkoviny</th>
+                      <th>Tuky</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="foodLogBody">
+                    <tr id="emptyLogRow">
+                      <td colspan="7" class="kal-empty-row">
+                        <i class="bi bi-egg-fried"></i>
+                        <p>Zatiaľ žiadne potraviny. Vyhľadajte a pridajte potraviny vyššie.</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- /kal-container -->
+        </div><!-- /kalorickeTab -->
+
+        <!-- ===== VÝŽIVOVÝ PLÁN ===== -->
+        <div class="vyzip-section" id="planTab">
+          <div class="empty-state">
+            <i class="bi bi-journal-text"></i>
+            <p>Výživový plán klienta.</p>
+          </div>
+        </div>
+
+      </div><!-- /vyzivTab -->
 
       <!-- ---- ČET TAB ---- -->
       <div class="tab-panel" id="cetTab">
