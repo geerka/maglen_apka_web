@@ -104,7 +104,7 @@ def api_food_search():
                 "page_size": 12,
                 "fields": "product_name,nutriments,quantity,brands",
             },
-            timeout=8,
+            timeout=60,
         )
         resp.raise_for_status()
         raw = resp.json()
