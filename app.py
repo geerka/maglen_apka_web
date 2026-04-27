@@ -123,7 +123,11 @@ def api_food_search():
                 "fats":     round(float(n.get("fat_100g") or 0), 1),
             })
         return jsonify({"products": products})
-    except Exception:
+    except requests.exceptions.Timeout:
+        app.logger.warning("Food search timed out for query: %s", query)
+        return jsonify({"products": [], "error": "Food search request timed out"}), 504
+    except Exception as exc:
+        app.logger.error("Food search error: %s", exc)
         return jsonify({"products": [], "error": "Failed to fetch food data"}), 500
 
 if __name__ == "__main__":

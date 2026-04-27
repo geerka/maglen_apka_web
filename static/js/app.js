@@ -398,14 +398,18 @@ function renderLog() {
   }
 
   // Update summary totals
-  const totals = foodLog.reduce(
-    (a, f) => ({ calories: a.calories + f.calories, carbs: a.carbs + f.carbs, proteins: a.proteins + f.proteins, fats: a.fats + f.fats }),
-    { calories: 0, carbs: 0, proteins: 0, fats: 0 }
-  );
+  const totals = foodLog.reduce((acc, f) => {
+    acc.calories += f.calories;
+    acc.carbs    += f.carbs;
+    acc.proteins += f.proteins;
+    acc.fats     += f.fats;
+    return acc;
+  }, { calories: 0, carbs: 0, proteins: 0, fats: 0 });
+
   document.getElementById('totalCalories').textContent = Math.round(totals.calories);
-  document.getElementById('totalCarbs').textContent    = (Math.round(totals.carbs    * 10) / 10).toFixed(1);
-  document.getElementById('totalProteins').textContent = (Math.round(totals.proteins * 10) / 10).toFixed(1);
-  document.getElementById('totalFats').textContent     = (Math.round(totals.fats     * 10) / 10).toFixed(1);
+  document.getElementById('totalCarbs').textContent    = roundMacro(totals.carbs);
+  document.getElementById('totalProteins').textContent = roundMacro(totals.proteins);
+  document.getElementById('totalFats').textContent     = roundMacro(totals.fats);
 }
 
 document.getElementById('clearLogBtn')?.addEventListener('click', () => {
@@ -422,6 +426,11 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/* ── Round a macro value to one decimal place ────────────── */
+function roundMacro(value) {
+  return (Math.round(value * 10) / 10).toFixed(1);
 }
 
 /* ── Init ────────────────────────────────────────────────── */
