@@ -558,7 +558,12 @@ let trainingHistory = JSON.parse(localStorage.getItem('trn_history') || '[]');
 const LOCAL_ACTIVE_KEY = 'trn_active';
 let restoredActiveState = null; // temp holder when restoring from server/local
 let dayExerciseCache = {}; // { dayIndex: [exerciseData] }
+let activeStateUpdatedLocal = null;
 
+function isoToMs(val) {
+  const t = Date.parse(val || '');
+  return Number.isNaN(t) ? 0 : t;
+}
 function debounce(fn, wait = 600) {
   let t;
   return function(...args) {
@@ -580,6 +585,7 @@ function getCurrentActiveState() {
 
 function saveActiveStateLocal(state) {
   try { localStorage.setItem(LOCAL_ACTIVE_KEY, JSON.stringify(state)); } catch (e) { console.warn('local save failed', e); }
+  activeStateUpdatedLocal = state.updated;
 }
 
 async function saveActiveStateServer(state) {
@@ -598,6 +604,7 @@ function saveActiveState(state) {
 async function clearActiveState() {
   try { localStorage.removeItem(LOCAL_ACTIVE_KEY); } catch (e) {}
   try { await fetch('/api/active_state', { method: 'DELETE' }); } catch (e) { console.warn('remote clear failed', e); }
+  activeStateUpdatedLocal = null;
 }
 
 function renderHistory() {
@@ -778,12 +785,133 @@ async function restoreActiveState() {
     activeProgramKey = state.programKey;
     activeDayIndex = state.activeDayIndex || 0;
     dayExerciseCache = state.dayExercises || {};
+      activeStateUpdatedLocal = state.updated || null;
     showActiveProgramView(state);
   } else {
     showProgramSelectionView();
+
+  async function pollActiveState() {
+    try {
+      const res = await fetch('/api/active_state');
+      const data = await res.json();
+      if (!data || data.status !== 'ok') return;
+
+      if (!data.state) {
+        const local = JSON.parse(localStorage.getItem(LOCAL_ACTIVE_KEY) || 'null');
+        if (local || activeProgramKey) {
+          await clearActiveState();
+          activeProgramKey = null;
+          activeDayIndex = 0;
+          dayExerciseCache = {};
+          showProgramSelectionView();
+          showToast('Tréning bol ukončený na inom zariadení', false);
+        }
+        return;
+      }
+
+      const serverUpdated = isoToMs(data.state.updated);
+      const localUpdated = isoToMs(activeStateUpdatedLocal || data.updated);
+      if (serverUpdated <= localUpdated) return;
+
+      activeProgramKey = data.state.programKey;
+      activeDayIndex = data.state.activeDayIndex || 0;
+      dayExerciseCache = data.state.dayExercises || {};
+      activeStateUpdatedLocal = data.state.updated || null;
+      saveActiveStateLocal(data.state);
+
+      if (document.getElementById('trn-active')?.style.display !== 'none') {
+        renderActiveProgramHeader();
+        renderExerciseTable();
+        showToast('Tréning bol aktualizovaný z iného zariadenia', true);
+      } else {
+        showActiveProgramView(data.state);
+      }
+    } catch (e) {
+      console.warn('Failed to poll active state', e);
+    }
+  }
+  }
+}
+const LOCAL_FOOD_KEY = 'food_log_state';
+let foodLogUpdated = null;
+
+function saveFoodLogLocal(state) {
+  try { localStorage.setItem(LOCAL_FOOD_KEY, JSON.stringify(state)); } catch (e) { console.warn('local food save failed', e); }
+  foodLogUpdated = state.updated;
+}
+
+async function saveFoodLogServer(state) {
+  try {
+    await fetch('/api/food_log', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state, updated: state.updated })
+    });
+  } catch (e) { console.warn('remote food save failed', e); }
+}
+
+function saveFoodLogState() {
+  const state = { items: foodLog, updated: new Date().toISOString() };
+  saveFoodLogLocal(state);
+  saveFoodLogServer(state);
+}
+
+async function restoreFoodLog() {
+  let state = null;
+  try {
+    const res = await fetch('/api/food_log');
+    const data = await res.json();
+    if (data && data.status === 'ok' && data.state) {
+      state = data.state;
+    }
+  } catch (e) {
+    console.warn('Failed to fetch food log from server', e);
+  }
+
+  if (!state) {
+    try {
+      const local = JSON.parse(localStorage.getItem(LOCAL_FOOD_KEY) || 'null');
+      if (local && Array.isArray(local.items)) {
+        state = local;
+      }
+    } catch (e) {
+      console.warn('Failed to restore local food log', e);
+    }
+  }
+
+  if (state && Array.isArray(state.items)) {
+    foodLog = state.items;
+    foodLogUpdated = state.updated || null;
+    renderLog();
   }
 }
 
+async function pollFoodLog() {
+  try {
+    const res = await fetch('/api/food_log');
+    const data = await res.json();
+    if (!data || data.status !== 'ok') return;
+
+    if (!data.state) {
+      const local = JSON.parse(localStorage.getItem(LOCAL_FOOD_KEY) || 'null');
+      if (local && Array.isArray(local.items) && local.items.length > 0) {
+        foodLog = [];
+        saveFoodLogLocal({ items: [], updated: new Date().toISOString() });
+        renderLog();
+      }
+      return;
+    }
+
+    const serverUpdated = isoToMs(data.state.updated);
+    const localUpdated = isoToMs(foodLogUpdated || data.updated);
+    if (serverUpdated <= localUpdated) return;
+
+    foodLog = Array.isArray(data.state.items) ? data.state.items : [];
+    foodLogUpdated = data.state.updated || null;
+    saveFoodLogLocal({ items: foodLog, updated: foodLogUpdated });
+    renderLog();
+  } catch (e) {
+    console.warn('Failed to poll food log', e);
+  }
+}
 function startProgram(key) {
   activeProgramKey = key;
   activeDayIndex = 0;
@@ -794,7 +922,9 @@ function startProgram(key) {
   // persist initial active program state
   const st = { programKey: activeProgramKey, activeDayIndex, dayExercises: {}, updated: new Date().toISOString() };
   saveActiveState(st);
+  saveFoodLogState();
 }
+  saveFoodLogState();
 
 function renderActiveProgramHeader() {
   const prog = PROGRAMS[activeProgramKey];
@@ -1082,4 +1212,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) syncServerEntries();
   });
+  saveFoodLogState();
 });
+  restoreFoodLog();
+  setInterval(pollActiveState, 6000);
+  setInterval(pollFoodLog, 8000);
+    if (!document.hidden) {
+      syncServerEntries();
+      pollActiveState();
+      pollFoodLog();
+    }

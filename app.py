@@ -46,6 +46,13 @@ def init_db():
         updated TEXT
     )
     ''')
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS food_log (
+        id INTEGER PRIMARY KEY,
+        data TEXT,
+        updated TEXT
+    )
+    ''')
     conn.commit()
     conn.close()
 
@@ -245,6 +252,43 @@ def api_active_state():
     except Exception as e:
         app.logger.exception('Active state error')
         return jsonify({'status': 'error', 'message': 'Active state failed'}), 500
+
+
+@app.route('/api/food_log', methods=['GET', 'POST', 'DELETE'])
+def api_food_log():
+    try:
+        if request.method == 'GET':
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('SELECT data, updated FROM food_log WHERE id = 1')
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                return jsonify({'status': 'ok', 'state': None})
+            return jsonify({'status': 'ok', 'state': json.loads(row['data']), 'updated': row['updated']})
+
+        if request.method == 'POST':
+            payload = request.get_json(force=True) or {}
+            data = json.dumps(payload.get('state') or payload)
+            updated = payload.get('updated') or datetime.utcnow().isoformat()
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('REPLACE INTO food_log (id, data, updated) VALUES (1, ?, ?)', (data, updated))
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'ok', 'message': 'Food log saved'})
+
+        if request.method == 'DELETE':
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('DELETE FROM food_log WHERE id = 1')
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'ok', 'message': 'Food log cleared'})
+
+    except Exception as e:
+        app.logger.exception('Food log error')
+        return jsonify({'status': 'error', 'message': 'Food log failed'}), 500
 
 @app.route("/api/food-search")
 def api_food_search():
