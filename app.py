@@ -193,6 +193,23 @@ def api_entries():
         return jsonify({'status': 'error', 'message': 'Failed to fetch entries'}), 500
 
 
+@app.route('/api/entries/<int:entry_id>', methods=['DELETE'])
+def api_delete_entry(entry_id):
+    try:
+        conn = get_db_conn()
+        cur = conn.cursor()
+        cur.execute('DELETE FROM entries WHERE id = ?', (entry_id,))
+        conn.commit()
+        deleted = cur.rowcount
+        conn.close()
+        if deleted == 0:
+            return jsonify({'status': 'error', 'message': 'Entry not found'}), 404
+        return jsonify({'status': 'ok', 'message': 'Entry deleted'})
+    except Exception:
+        app.logger.exception('Failed to delete entry')
+        return jsonify({'status': 'error', 'message': 'Failed to delete entry'}), 500
+
+
 @app.route('/api/active_state', methods=['GET', 'POST', 'DELETE'])
 def api_active_state():
     try:

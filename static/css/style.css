@@ -91,6 +91,13 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
   color: #fff; font-size: .8rem; font-weight: 600; letter-spacing: .06em;
   height: 100%;
 }
+.topnav-admin-meta { display: flex; flex-direction: column; line-height: 1.1; }
+.topnav-admin-status {
+  font-size: .62rem; letter-spacing: .08em; font-weight: 600;
+  color: rgba(255,255,255,.6); text-transform: uppercase;
+}
+.topnav-admin-status.is-online { color: #8fe3b5; }
+.topnav-admin-status.is-offline { color: #ffb3b3; }
 .admin-avatar {
   width: 32px; height: 32px; border-radius: 50%;
   background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.2);
@@ -588,6 +595,29 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
   display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0;
 }
 .trn-hist-download:hover { color: var(--blue); border-color: var(--blue); background: rgba(47,127,191,.06); }
+
+.trn-hist-menu { position: relative; flex-shrink: 0; }
+.trn-hist-menu-btn {
+  background: none; border: 1px solid var(--border); border-radius: 7px;
+  color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: .8rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.trn-hist-menu-btn:hover { color: var(--blue); border-color: var(--blue); background: rgba(47,127,191,.06); }
+.trn-hist-menu-list {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.1);
+  min-width: 140px; display: none; z-index: 5; overflow: hidden;
+}
+.trn-hist-menu-list.open { display: block; }
+.trn-hist-menu-item {
+  background: none; border: none; width: 100%;
+  padding: 8px 10px; font-size: .72rem; font-weight: 600;
+  color: #b02a37; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+}
+.trn-hist-menu-item:hover { background: #F5F8FD; }
 
 /* Active workout */
 .trn-active-wrap { display: flex; flex-direction: column; height: 100%; }

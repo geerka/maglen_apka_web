@@ -20,6 +20,15 @@ function showToast(msg, ok = true) {
   bootstrap.Toast.getOrCreateInstance(el, { delay: 2500 }).show();
 }
 
+function updateOnlineStatus() {
+  const el = document.getElementById('onlineStatus');
+  if (!el) return;
+  const online = navigator.onLine;
+  el.textContent = online ? 'ONLINE' : 'OFFLINE';
+  el.classList.toggle('is-online', online);
+  el.classList.toggle('is-offline', !online);
+}
+
 /* ── Calendar rendering ──────────────────────────────────── */
 function renderSessions() {
   const grid = document.getElementById('timeGrid');
@@ -449,6 +458,9 @@ function roundMacro(value) {
 
 /* ── Init ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+  updateOnlineStatus();
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
   // Chart.js needs a visible canvas → slight delay ensures layout is done
   setTimeout(() => {
     renderProgressChart();
@@ -608,8 +620,55 @@ function renderHistory() {
       <button class="trn-hist-download" onclick="downloadHistoryPDF(${trainingHistory.length - 1 - i})">
         <i class="bi bi-download"></i> PDF
       </button>
+      <div class="trn-hist-menu">
+        <button class="trn-hist-menu-btn" aria-label="Možnosti" onclick="toggleHistoryMenu(event)">
+          <i class="bi bi-three-dots"></i>
+        </button>
+        <div class="trn-hist-menu-list">
+          <button class="trn-hist-menu-item" onclick="deleteHistoryEntry(${trainingHistory.length - 1 - i})">
+            <i class="bi bi-trash3"></i> Zmazať
+          </button>
+        </div>
+      </div>
     </div>
   `).join('');
+}
+
+function toggleHistoryMenu(event) {
+  event.stopPropagation();
+  const btn = event.currentTarget;
+  const menu = btn?.parentElement?.querySelector('.trn-hist-menu-list');
+  if (!menu) return;
+  document.querySelectorAll('.trn-hist-menu-list').forEach(m => {
+    if (m !== menu) m.classList.remove('open');
+  });
+  menu.classList.toggle('open');
+}
+
+async function deleteHistoryEntry(idx) {
+  const entry = trainingHistory[idx];
+  if (!entry) return;
+  const ok = window.confirm('Naozaj chcete zmazať tento tréning?');
+  if (!ok) return;
+
+  if (entry.id) {
+    try {
+      const res = await fetch(`/api/entries/${entry.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data || data.status !== 'ok') {
+        showToast('Zmazanie zlyhalo', false);
+        return;
+      }
+    } catch (e) {
+      showToast('Zmazanie zlyhalo', false);
+      return;
+    }
+  }
+
+  trainingHistory.splice(idx, 1);
+  localStorage.setItem('trn_history', JSON.stringify(trainingHistory));
+  renderHistory();
+  showToast('Tréning zmazaný', true);
 }
 
 function resolveDayIndex(programKey, dayLabel) {
@@ -1015,4 +1074,12 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   restoreActiveState();
   syncServerEntries();
+
+  setInterval(syncServerEntries, 15000);
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.trn-hist-menu-list').forEach(m => m.classList.remove('open'));
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncServerEntries();
+  });
 });
