@@ -116,23 +116,30 @@
 
         <!-- === PROGRAM SELECTOR === -->
         <div id="trn-selector" class="trn-selector-wrap">
-          <div class="trn-selector-title"> Vyber tréningový program</div>
-          <div class="trn-program-cards">
 
-            <div class="trn-program-card" data-program="GBCI1">
-              
-              <div class="trn-prog-name">GBCI 1 (Plan 1 )</div>
-              
-              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('GBCI1')">Vybrať program</button>
+          <!-- CURRENTLY ACTIVE PROGRAM (shown when a program is active but not being edited) -->
+          <div id="trn-current-program" style="display:none;">
+            <div class="trn-selector-title">Aktívny tréningový program</div>
+            <div class="trn-program-card active">
+              <div class="trn-prog-name" id="trn-current-name"></div>
+              <div class="trn-prog-meta" id="trn-current-meta"></div>
+              <button class="btn-diag-blue mt-2 w-100" id="trn-continue-btn">Pokračovať v zápise</button>
             </div>
+          </div>
 
-            <div class="trn-program-card" data-program="6-12-25">
-            
-              <div class="trn-prog-name">6 – 12 – 25 (Plan 2 ) </div>
-              
-              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('6-12-25')">Vybrať program</button>
+          <!-- PROGRAM SELECTION (shown when no program is active) -->
+          <div id="trn-program-selection">
+            <div class="trn-selector-title">Vyber tréningový program</div>
+            <div class="trn-program-cards">
+              <div class="trn-program-card" data-program="GBCI1">
+                <div class="trn-prog-name">GBCI 1 (Plan 1 )</div>
+                <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('GBCI1')">Vybrať program</button>
+              </div>
+              <div class="trn-program-card" data-program="6-12-25">
+                <div class="trn-prog-name">6 – 12 – 25 (Plan 2 ) </div>
+                <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('6-12-25')">Vybrať program</button>
+              </div>
             </div>
-
           </div>
 
           <!-- History -->
@@ -150,6 +157,7 @@
         <div id="trn-active" class="trn-active-wrap" style="display:none">
 
           <div class="trn-active-header">
+            <button class="btn-diag-outline btn-back" id="trn-back-btn"><i class="bi bi-arrow-left"></i> Späť</button>
             <div>
               <span class="trn-active-badge" id="trn-active-badge">GBCI1</span>
               <span class="trn-active-day" id="trn-active-day">Deň 1 a 3</span>
@@ -176,8 +184,8 @@
           </div>
 
           <div class="trn-active-footer">
-            <button class="btn-diag-outline" onclick="cancelProgram()"><i class="bi bi-arrow-left"></i> Späť</button>
-            <button class="btn-diag-blue" id="trn-end-btn" onclick="endProgram()"><i class="bi bi-check-circle"></i> Ukončiť & Uložiť ako PDF</button>
+            <button class="btn-diag-outline" id="trn-save-btn"><i class="bi bi-save"></i> Uložiť postup</button>
+            <button class="btn-diag-blue" id="trn-end-btn"><i class="bi bi-check-circle"></i> Ukončiť a archivovať</button>
           </div>
 
         </div>

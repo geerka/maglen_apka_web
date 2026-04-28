@@ -527,7 +527,7 @@ const PROGRAMS = {
         exercises: [
           { por: 'A1', series: '6', tempo: '', p: '' },
           { por: 'A2', series: '6', tempo: '', p: '' },
-          { por: 'A2', series: '6', tempo: '', p: '' },
+          { por: 'A3', series: '6', tempo: '', p: '' },
           { por: 'B1', series: '12', tempo: '', p: '' },
           { por: 'B2', series: '12', tempo: '', p: '' },
           { por: 'B3', series: '12', tempo: '', p: '' },
@@ -543,6 +543,50 @@ const PROGRAMS = {
 let activeProgramKey = null;
 let activeDayIndex = 0;
 let trainingHistory = JSON.parse(localStorage.getItem('trn_history') || '[]');
+const LOCAL_ACTIVE_KEY = 'trn_active';
+let restoredActiveState = null; // temp holder when restoring from server/local
+let dayExerciseCache = {}; // { dayIndex: [exerciseData] }
+
+function debounce(fn, wait = 600) {
+  let t;
+  return function(...args) {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, args), wait);
+  };
+}
+
+function getCurrentActiveState() {
+  if (!activeProgramKey) return null;
+  dayExerciseCache[activeDayIndex] = collectFormData();
+  return {
+    programKey: activeProgramKey,
+    activeDayIndex: activeDayIndex,
+    dayExercises: dayExerciseCache,
+    updated: new Date().toISOString(),
+  };
+}
+
+function saveActiveStateLocal(state) {
+  try { localStorage.setItem(LOCAL_ACTIVE_KEY, JSON.stringify(state)); } catch (e) { console.warn('local save failed', e); }
+}
+
+async function saveActiveStateServer(state) {
+  try {
+    await fetch('/api/active_state', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state, updated: state.updated })
+    });
+  } catch (e) { console.warn('remote save failed', e); }
+}
+
+function saveActiveState(state) {
+  saveActiveStateLocal(state);
+  saveActiveStateServer(state);
+}
+
+async function clearActiveState() {
+  try { localStorage.removeItem(LOCAL_ACTIVE_KEY); } catch (e) {}
+  try { await fetch('/api/active_state', { method: 'DELETE' }); } catch (e) { console.warn('remote clear failed', e); }
+}
 
 function renderHistory() {
   const list = document.getElementById('trn-history-list');
@@ -555,9 +599,12 @@ function renderHistory() {
     <div class="trn-history-row">
       <div class="trn-hist-icon"><i class="bi bi-activity"></i></div>
       <div class="trn-hist-info">
-        <div class="trn-hist-name">${h.programName} · ${h.dayLabel}</div>
+        <div class="trn-hist-name">${h.title ? escHtml(h.title) : `${h.programName} · ${h.dayLabel}`}</div>
         <div class="trn-hist-meta">${h.date} · ${h.exerciseCount} cvikov</div>
       </div>
+      <button class="trn-hist-download" onclick="loadHistoryEntry(${trainingHistory.length - 1 - i})">
+        <i class="bi bi-arrow-counterclockwise"></i> Načítať
+      </button>
       <button class="trn-hist-download" onclick="downloadHistoryPDF(${trainingHistory.length - 1 - i})">
         <i class="bi bi-download"></i> PDF
       </button>
@@ -565,13 +612,129 @@ function renderHistory() {
   `).join('');
 }
 
+function resolveDayIndex(programKey, dayLabel) {
+  const prog = PROGRAMS[programKey];
+  if (!prog) return 0;
+  const idx = prog.days.findIndex(d => d.label === dayLabel);
+  return idx >= 0 ? idx : 0;
+}
+
+function loadHistoryEntry(idx) {
+  const entry = trainingHistory[idx];
+  if (!entry || !PROGRAMS[entry.programKey]) {
+    showToast('Záznam sa nepodarilo načítať', false);
+    return;
+  }
+
+  activeProgramKey = entry.programKey;
+  activeDayIndex = resolveDayIndex(entry.programKey, entry.dayLabel);
+  dayExerciseCache = {};
+  dayExerciseCache[activeDayIndex] = entry.exercises || [];
+
+  const state = {
+    programKey: activeProgramKey,
+    activeDayIndex: activeDayIndex,
+    dayExercises: dayExerciseCache,
+    updated: new Date().toISOString(),
+  };
+  saveActiveState(state);
+
+  showEditorView();
+  renderActiveProgramHeader();
+  renderExerciseTable();
+  showToast('Tréning načítaný', true);
+}
+
+function showActiveProgramView(state) {
+  const prog = PROGRAMS[state.programKey];
+  if (!prog) return;
+  document.getElementById('trn-current-name').textContent = prog.name;
+  const meta = `Deň: ${prog.days[state.activeDayIndex || 0].label} | Posledná zmena: ${new Date(state.updated).toLocaleString('sk-SK')}`;
+  document.getElementById('trn-current-meta').textContent = meta;
+
+  document.getElementById('trn-program-selection').style.display = 'none';
+  document.getElementById('trn-current-program').style.display = 'block';
+  document.getElementById('trn-active').style.display = 'none';
+  document.getElementById('trn-selector').style.display = 'flex';
+}
+
+function showProgramSelectionView() {
+  document.getElementById('trn-program-selection').style.display = 'block';
+  document.getElementById('trn-current-program').style.display = 'none';
+  document.getElementById('trn-active').style.display = 'none';
+  document.getElementById('trn-selector').style.display = 'flex';
+}
+
+function showEditorView() {
+  document.getElementById('trn-selector').style.display = 'none';
+  document.getElementById('trn-active').style.display = 'flex';
+}
+
+async function syncServerEntries() {
+  try {
+    const res = await fetch('/api/entries');
+    const data = await res.json();
+    if (!data || data.status !== 'ok' || !Array.isArray(data.entries)) return;
+
+    const local = JSON.parse(localStorage.getItem('trn_history') || '[]');
+    const byKey = {};
+    local.concat(data.entries).forEach(e => {
+      const key = e.id || e.timestamp || (e.programKey + '|' + e.date);
+      if (!byKey[key]) byKey[key] = e;
+    });
+    const merged = Object.values(byKey).sort((a, b) => (b.id || 0) - (a.id || 0));
+    trainingHistory = merged;
+    localStorage.setItem('trn_history', JSON.stringify(trainingHistory));
+    renderHistory();
+  } catch (e) {
+    console.warn('Failed to sync server entries', e);
+  }
+}
+
+async function restoreActiveState() {
+  let state = null;
+  try {
+    const res = await fetch('/api/active_state');
+    const data = await res.json();
+    if (data && data.status === 'ok' && data.state) {
+      state = data.state;
+    }
+  } catch (e) {
+    console.warn('Failed to fetch active state from server', e);
+  }
+
+  if (!state) {
+    try {
+      const local = JSON.parse(localStorage.getItem(LOCAL_ACTIVE_KEY) || 'null');
+      if (local && local.programKey) {
+        state = local;
+      }
+    } catch (e) {
+      console.warn('Failed to restore local active state', e);
+    }
+  }
+
+  if (state && state.programKey) {
+    restoredActiveState = state;
+    activeProgramKey = state.programKey;
+    activeDayIndex = state.activeDayIndex || 0;
+    dayExerciseCache = state.dayExercises || {};
+    showActiveProgramView(state);
+  } else {
+    showProgramSelectionView();
+  }
+}
+
 function startProgram(key) {
   activeProgramKey = key;
   activeDayIndex = 0;
-  document.getElementById('trn-selector').style.display = 'none';
-  document.getElementById('trn-active').style.display = 'flex';
+  dayExerciseCache = {};
+  showEditorView();
   renderActiveProgramHeader();
   renderExerciseTable();
+  // persist initial active program state
+  const st = { programKey: activeProgramKey, activeDayIndex, dayExercises: {}, updated: new Date().toISOString() };
+  saveActiveState(st);
 }
 
 function renderActiveProgramHeader() {
@@ -586,21 +749,25 @@ function renderActiveProgramHeader() {
 }
 
 function switchDay(idx) {
+  dayExerciseCache[activeDayIndex] = collectFormData();
   activeDayIndex = idx;
   renderActiveProgramHeader();
   renderExerciseTable();
+  const state = getCurrentActiveState();
+  if (state) saveActiveState(state);
 }
 
 function renderExerciseTable() {
   const prog = PROGRAMS[activeProgramKey];
   const day = prog.days[activeDayIndex];
+  const exercises = dayExerciseCache[activeDayIndex] || day.exercises;
   const tbody = document.getElementById('trn-tbody');
 
   // Group by section (A/B/C for 6-12-25, flat for GBCI1)
   let rows = '';
   let lastSection = null;
 
-  day.exercises.forEach((ex, idx) => {
+  exercises.forEach((ex, idx) => {
     const section = typeof ex.por === 'string' ? ex.por[0] : null;
     if (section && section !== lastSection) {
       lastSection = section;
@@ -642,12 +809,25 @@ function renderExerciseTable() {
   });
 
   tbody.innerHTML = rows;
+
+  // Inputs are already filled from cached day data
+
+  // Attach input listeners to autosave progress (debounced)
+  const saveDebounced = debounce(() => {
+    const state = getCurrentActiveState();
+    if (state) saveActiveState(state);
+  }, 800);
+
+  tbody.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', saveDebounced);
+  });
 }
 
 function collectFormData() {
   const prog = PROGRAMS[activeProgramKey];
   const day = prog.days[activeDayIndex];
-  return day.exercises.map((ex, idx) => ({
+  const exercises = dayExerciseCache[activeDayIndex] || day.exercises;
+  return exercises.map((ex, idx) => ({
     por: ex.por,
     cvik: document.getElementById(`cvik_${idx}`)?.value || '',
     series: document.getElementById(`series_${idx}`)?.value || ex.series,
@@ -663,22 +843,31 @@ function collectFormData() {
   }));
 }
 
-function cancelProgram() {
-  activeProgramKey = null;
+function cancelProgram(clear = false) {
   document.getElementById('trn-selector').style.display = 'flex';
   document.getElementById('trn-active').style.display = 'none';
+  if (clear) {
+    activeProgramKey = null;
+    activeDayIndex = 0;
+  }
 }
 
-function endProgram() {
+async function endProgram() {
+  if (!activeProgramKey) return;
   const prog = PROGRAMS[activeProgramKey];
   const day = prog.days[activeDayIndex];
   const data = collectFormData();
   const now = new Date();
   const dateStr = now.toLocaleDateString('sk-SK');
+  const defaultTitle = `${prog.name} - ${day.label} - ${dateStr}`;
+  const inputTitle = window.prompt('Nazov treningu', defaultTitle);
+  if (inputTitle === null) return;
+  const finalTitle = inputTitle.trim() || defaultTitle;
 
   // Save to history
   const entry = {
     programKey: activeProgramKey,
+    title: finalTitle,
     programName: prog.name,
     dayLabel: day.label,
     date: dateStr,
@@ -686,16 +875,36 @@ function endProgram() {
     exerciseCount: data.length,
     exercises: data
   };
+  // Try to save on server (best-effort). If successful, server will return an id.
+  try {
+    const res = await fetch('/api/save_entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+    const resp = await res.json();
+    if (resp && resp.status === 'ok' && resp.id) {
+      entry.id = resp.id;
+    }
+  } catch (e) {
+    console.warn('Failed to save entry on server, keeping local copy', e);
+    showToast('Uložené lokálne (offline)', false);
+  }
+
   trainingHistory.push(entry);
   localStorage.setItem('trn_history', JSON.stringify(trainingHistory));
-
   // Generate & download PDF
   generatePDF(entry);
 
   // Go back to selector
-  cancelProgram();
+  // clear active program (we finished it)
+  await clearActiveState();
+  activeProgramKey = null;
+  activeDayIndex = 0;
+  dayExerciseCache = {};
+  showProgramSelectionView();
   renderHistory();
-  showToast('Tréning uložený a PDF stiahnuté!', true);
+  showToast('Tréning archivovaný!', true);
 }
 
 function generatePDF(entry) {
@@ -714,11 +923,12 @@ function generatePDF(entry) {
     </tr>
   `).join('');
 
+  const pdfTitle = entry.title || `${entry.programName} - ${entry.dayLabel} - ${entry.date}`;
   const html = `<!DOCTYPE html>
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
-<title>${entry.programName} – ${entry.dayLabel} – ${entry.date}</title>
+<title>${pdfTitle}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'DM Sans', Arial, sans-serif; font-size: 11px; color: #1A2636; padding: 24px; }
@@ -733,7 +943,7 @@ function generatePDF(entry) {
 </head>
 <body>
   <div class="badge">Maglen Training Center</div>
-  <h1>${entry.programName} · ${entry.dayLabel}</h1>
+  <h1>${pdfTitle}</h1>
   <div class="meta">Dátum: ${entry.date} &nbsp;|&nbsp; Počet cvikov: ${entry.exerciseCount}</div>
   <table>
     <thead>
@@ -751,7 +961,8 @@ function generatePDF(entry) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `trening_${entry.programKey}_${entry.dayLabel.replace(/\s/g,'_')}_${entry.date.replace(/\./g,'-')}.html`;
+  const safeTitle = String(pdfTitle).replace(/[^a-zA-Z0-9_-]+/g, '_');
+  a.download = `trening_${safeTitle}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -763,7 +974,45 @@ function downloadHistoryPDF(idx) {
   if (entry) generatePDF(entry);
 }
 
-// Init on page load
 document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('trn-save-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const state = getCurrentActiveState();
+      if (state) {
+        saveActiveState(state);
+        showToast('Postup uložený!', true);
+        showActiveProgramView(state);
+      }
+    });
+  }
+
+  const endBtn = document.getElementById('trn-end-btn');
+  if (endBtn) {
+    endBtn.addEventListener('click', endProgram);
+  }
+
+  const continueBtn = document.getElementById('trn-continue-btn');
+  if (continueBtn) {
+    continueBtn.addEventListener('click', () => {
+      showEditorView();
+      renderActiveProgramHeader();
+      renderExerciseTable();
+    });
+  }
+
+  const backBtn = document.getElementById('trn-back-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      const state = getCurrentActiveState();
+      if (state) {
+        saveActiveState(state);
+        showActiveProgramView(state);
+      }
+    });
+  }
+
   renderHistory();
+  restoreActiveState();
+  syncServerEntries();
 });

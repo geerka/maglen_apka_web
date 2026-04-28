@@ -3,8 +3,54 @@ from datetime import datetime, timedelta
 import random
 import os
 import requests
+import sqlite3
+import json
+from pathlib import Path
 
 app = Flask(__name__)
+DATA_DIR = Path(__file__).parent
+DB_PATH = DATA_DIR / 'maglen.db'
+
+
+def get_db_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_key TEXT,
+        title TEXT,
+        program_name TEXT,
+        day_label TEXT,
+        date TEXT,
+        timestamp TEXT,
+        exercise_count INTEGER,
+        exercises TEXT
+    )
+    ''')
+    try:
+        cur.execute('ALTER TABLE entries ADD COLUMN title TEXT')
+    except sqlite3.OperationalError:
+        pass
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS active_state (
+        id INTEGER PRIMARY KEY,
+        data TEXT,
+        updated TEXT
+    )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+init_db()
 
 # --- Demo Data ---
 client = {
@@ -30,7 +76,7 @@ progress_data = {
     "values": [38, 36, 34, 31, 29],
 }
 
-DAYS = ["MI", "UT", "ST", "ŠT", "PI", "SO", "NE"]
+DAYS = ["PO", "UT", "ST", "ŠT", "PI", "SO", "NE"]
 today = datetime(2025, 4, 27)
 
 def get_week_days():
@@ -87,6 +133,101 @@ def api_retest():
 @app.route("/api/update_plan", methods=["POST"])
 def api_update_plan():
     return jsonify({"status": "ok", "message": "Plan updated!"})
+
+
+@app.route('/api/save_entry', methods=['POST'])
+def api_save_entry():
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        conn = get_db_conn()
+        cur = conn.cursor()
+        cur.execute(
+            'INSERT INTO entries (program_key, title, program_name, day_label, date, timestamp, exercise_count, exercises) VALUES (?,?,?,?,?,?,?,?)',
+            (
+                payload.get('programKey') or payload.get('program_key'),
+                payload.get('title') or payload.get('name'),
+                payload.get('programName') or payload.get('program_name'),
+                payload.get('dayLabel') or payload.get('day_label'),
+                payload.get('date'),
+                payload.get('timestamp'),
+                int(payload.get('exerciseCount') or payload.get('exercise_count') or 0),
+                json.dumps(payload.get('exercises') or payload.get('exercises', [])),
+            )
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return jsonify({'status': 'ok', 'message': 'Entry saved', 'id': new_id})
+    except Exception as e:
+        app.logger.exception('Failed to save entry')
+        return jsonify({'status': 'error', 'message': 'Failed to save entry'}), 500
+
+
+@app.route('/api/entries')
+def api_entries():
+    try:
+        conn = get_db_conn()
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM entries ORDER BY id DESC')
+        rows = cur.fetchall()
+        conn.close()
+        out = []
+        for r in rows:
+            out.append({
+                'id': r['id'],
+                'programKey': r['program_key'],
+                'title': r['title'],
+                'programName': r['program_name'],
+                'dayLabel': r['day_label'],
+                'date': r['date'],
+                'timestamp': r['timestamp'],
+                'exerciseCount': r['exercise_count'],
+                'exercises': json.loads(r['exercises'] or '[]')
+            })
+        return jsonify({'status': 'ok', 'entries': out})
+    except Exception as e:
+        app.logger.exception('Failed to fetch entries')
+        return jsonify({'status': 'error', 'message': 'Failed to fetch entries'}), 500
+
+
+@app.route('/api/active_state', methods=['GET', 'POST', 'DELETE'])
+def api_active_state():
+    try:
+        if request.method == 'GET':
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('SELECT data, updated FROM active_state WHERE id = 1')
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                return jsonify({'status': 'ok', 'state': None})
+            return jsonify({'status': 'ok', 'state': json.loads(row['data']), 'updated': row['updated']})
+
+        if request.method == 'POST':
+            payload = request.get_json(force=True) or {}
+            data = json.dumps(payload.get('state') or payload)
+            updated = payload.get('updated') or datetime.utcnow().isoformat()
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('REPLACE INTO active_state (id, data, updated) VALUES (1, ?, ?)', (data, updated))
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'ok', 'message': 'State saved'})
+
+        if request.method == 'DELETE':
+            conn = get_db_conn()
+            cur = conn.cursor()
+            cur.execute('DELETE FROM active_state WHERE id = 1')
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'ok', 'message': 'State cleared'})
+
+    except Exception as e:
+        app.logger.exception('Active state error')
+        return jsonify({'status': 'error', 'message': 'Active state failed'}), 500
 
 @app.route("/api/food-search")
 def api_food_search():
