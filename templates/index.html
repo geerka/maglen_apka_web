@@ -113,9 +113,75 @@
 
       <!-- ---- TRÉNING TAB ---- -->
       <div class="tab-panel" id="treningTab">
-        <div class="empty-state">
-          <i class="bi bi-activity"></i>
-          <p>Tréningový plán a história tréningov.</p>
+
+        <!-- === PROGRAM SELECTOR === -->
+        <div id="trn-selector" class="trn-selector-wrap">
+          <div class="trn-selector-title"><i class="bi bi-lightning-charge-fill"></i> Vyber tréningový program</div>
+          <div class="trn-program-cards">
+
+            <div class="trn-program-card" data-program="GBCI1">
+              <div class="trn-prog-badge">Základný</div>
+              <div class="trn-prog-name">GBCI 1</div>
+              <div class="trn-prog-sub">Deň 1&3 · Deň 2&4</div>
+              <div class="trn-prog-meta"><i class="bi bi-layers"></i> 8 cvikov / deň &nbsp;·&nbsp; <i class="bi bi-calendar3"></i> 4× týždeň</div>
+              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('GBCI1')">Spustiť program</button>
+            </div>
+
+            <div class="trn-program-card" data-program="6-12-25">
+              <div class="trn-prog-badge trn-prog-badge--adv">Pokročilý</div>
+              <div class="trn-prog-name">6 – 12 – 25</div>
+              <div class="trn-prog-sub">Deň A · Deň B</div>
+              <div class="trn-prog-meta"><i class="bi bi-layers"></i> 9 cvikov / deň &nbsp;·&nbsp; <i class="bi bi-calendar3"></i> 2× týždeň</div>
+              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('6-12-25')">Spustiť program</button>
+            </div>
+
+          </div>
+
+          <!-- History -->
+          <div class="trn-history-section">
+            <div class="trn-history-header">
+              <span><i class="bi bi-clock-history"></i> História tréningov</span>
+            </div>
+            <div id="trn-history-list" class="trn-history-list">
+              <div class="trn-history-empty"><i class="bi bi-inbox"></i><p>Zatiaľ žiadne záznamy</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- === ACTIVE PROGRAM (hidden until started) === -->
+        <div id="trn-active" class="trn-active-wrap" style="display:none">
+
+          <div class="trn-active-header">
+            <div>
+              <span class="trn-active-badge" id="trn-active-badge">GBCI1</span>
+              <span class="trn-active-day" id="trn-active-day">Deň 1 a 3</span>
+            </div>
+            <div class="trn-day-switcher" id="trn-day-switcher"></div>
+          </div>
+
+          <!-- Exercises table -->
+          <div class="trn-table-wrap">
+            <table class="trn-table" id="trn-table">
+              <thead>
+                <tr>
+                  <th>Por.</th>
+                  <th>Cvik</th>
+                  <th>Série × op</th>
+                  <th>Tempo</th>
+                  <th>P</th>
+                  <th colspan="3">Záznam (op / váha)</th>
+                  <th>Poznámka</th>
+                </tr>
+              </thead>
+              <tbody id="trn-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="trn-active-footer">
+            <button class="btn-diag-outline" onclick="cancelProgram()"><i class="bi bi-arrow-left"></i> Späť</button>
+            <button class="btn-diag-blue" id="trn-end-btn" onclick="endProgram()"><i class="bi bi-check-circle"></i> Ukončiť & Uložiť ako PDF</button>
+          </div>
+
         </div>
       </div>
 

@@ -466,3 +466,304 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(renderSessions, 150);
   }
 });
+
+/* ============================================================
+   TRÉNING TAB – Training programs from Excel
+   ============================================================ */
+
+const PROGRAMS = {
+  'GBCI1': {
+    name: 'GBCI 1',
+    level: 'Základný',
+    days: [
+      {
+        label: 'Deň 1 a 3',
+        exercises: [
+          { por: 1, series: '3', tempo: '', p: '' },
+          { por: 2, series: '3', tempo: '', p: '' },
+          { por: 3, series: '3', tempo: '', p: '' },
+          { por: 4, series: '3', tempo: '', p: '' },
+          { por: 5, series: '3', tempo: '', p: '' },
+          { por: 6, series: '3', tempo: '', p: '' },
+          { por: 7, series: '3', tempo: '', p: '' },
+          { por: 8, series: '3', tempo: '', p: '' },
+        ]
+      },
+      {
+        label: 'Deň 2 a 4',
+        exercises: [
+          { por: 1, series: '3', tempo: '', p: '' },
+          { por: 2, series: '3', tempo: '', p: '' },
+          { por: 3, series: '3', tempo: '', p: '' },
+          { por: 4, series: '3', tempo: '', p: '' },
+          { por: 5, series: '3', tempo: '', p: '' },
+          { por: 6, series: '3', tempo: '', p: '' },
+          { por: 7, series: '3', tempo: '', p: '' },
+          { por: 8, series: '3', tempo: '', p: '' },
+        ]
+      }
+    ]
+  },
+  '6-12-25': {
+    name: '6 – 12 – 25',
+    level: 'Pokročilý',
+    days: [
+      {
+        label: 'Deň A',
+        exercises: [
+          { por: 'A1', series: '6', tempo: '', p: '' },
+          { por: 'A2', series: '6', tempo: '', p: '' },
+          { por: 'A2', series: '6', tempo: '', p: '' },
+          { por: 'B1', series: '12', tempo: '', p: '' },
+          { por: 'B2', series: '12', tempo: '', p: '' },
+          { por: 'B3', series: '12', tempo: '', p: '' },
+          { por: 'C1', series: '25', tempo: '', p: '' },
+          { por: 'C2', series: '25', tempo: '', p: '' },
+          { por: 'C3', series: '25', tempo: '', p: '' },
+        ]
+      },
+      {
+        label: 'Deň B',
+        exercises: [
+          { por: 'A1', series: '6', tempo: '', p: '' },
+          { por: 'A2', series: '6', tempo: '', p: '' },
+          { por: 'A2', series: '6', tempo: '', p: '' },
+          { por: 'B1', series: '12', tempo: '', p: '' },
+          { por: 'B2', series: '12', tempo: '', p: '' },
+          { por: 'B3', series: '12', tempo: '', p: '' },
+          { por: 'C1', series: '25', tempo: '', p: '' },
+          { por: 'C2', series: '25', tempo: '', p: '' },
+          { por: 'C3', series: '25', tempo: '', p: '' },
+        ]
+      }
+    ]
+  }
+};
+
+let activeProgramKey = null;
+let activeDayIndex = 0;
+let trainingHistory = JSON.parse(localStorage.getItem('trn_history') || '[]');
+
+function renderHistory() {
+  const list = document.getElementById('trn-history-list');
+  if (!list) return;
+  if (trainingHistory.length === 0) {
+    list.innerHTML = '<div class="trn-history-empty"><i class="bi bi-inbox"></i><p>Zatiaľ žiadne záznamy</p></div>';
+    return;
+  }
+  list.innerHTML = trainingHistory.slice().reverse().map((h, i) => `
+    <div class="trn-history-row">
+      <div class="trn-hist-icon"><i class="bi bi-activity"></i></div>
+      <div class="trn-hist-info">
+        <div class="trn-hist-name">${h.programName} · ${h.dayLabel}</div>
+        <div class="trn-hist-meta">${h.date} · ${h.exerciseCount} cvikov</div>
+      </div>
+      <button class="trn-hist-download" onclick="downloadHistoryPDF(${trainingHistory.length - 1 - i})">
+        <i class="bi bi-download"></i> PDF
+      </button>
+    </div>
+  `).join('');
+}
+
+function startProgram(key) {
+  activeProgramKey = key;
+  activeDayIndex = 0;
+  document.getElementById('trn-selector').style.display = 'none';
+  document.getElementById('trn-active').style.display = 'flex';
+  renderActiveProgramHeader();
+  renderExerciseTable();
+}
+
+function renderActiveProgramHeader() {
+  const prog = PROGRAMS[activeProgramKey];
+  document.getElementById('trn-active-badge').textContent = prog.name;
+  document.getElementById('trn-active-day').textContent = prog.days[activeDayIndex].label;
+
+  const switcher = document.getElementById('trn-day-switcher');
+  switcher.innerHTML = prog.days.map((d, i) => `
+    <button class="trn-day-btn ${i === activeDayIndex ? 'active' : ''}" onclick="switchDay(${i})">${d.label}</button>
+  `).join('');
+}
+
+function switchDay(idx) {
+  activeDayIndex = idx;
+  renderActiveProgramHeader();
+  renderExerciseTable();
+}
+
+function renderExerciseTable() {
+  const prog = PROGRAMS[activeProgramKey];
+  const day = prog.days[activeDayIndex];
+  const tbody = document.getElementById('trn-tbody');
+
+  // Group by section (A/B/C for 6-12-25, flat for GBCI1)
+  let rows = '';
+  let lastSection = null;
+
+  day.exercises.forEach((ex, idx) => {
+    const section = typeof ex.por === 'string' ? ex.por[0] : null;
+    if (section && section !== lastSection) {
+      lastSection = section;
+      const sectionName = section === 'A' ? 'Sekcia A (6 opakovaní)' : section === 'B' ? 'Sekcia B (12 opakovaní)' : 'Sekcia C (25 opakovaní)';
+      rows += `<tr class="trn-section-row"><td colspan="9">${sectionName}</td></tr>`;
+    }
+
+    rows += `
+      <tr>
+        <td class="trn-por">${ex.por}</td>
+        <td><input class="trn-cvik-input" type="text" placeholder="Názov cviku…" id="cvik_${idx}" value="${ex.cvik || ''}"></td>
+        <td><input class="trn-series-input" type="text" placeholder="${ex.series}" id="series_${idx}" value="${ex.series || ''}"></td>
+        <td><input class="trn-tempo-input" type="text" placeholder="—" id="tempo_${idx}" value="${ex.tempo || ''}"></td>
+        <td><input class="trn-p-input" type="text" placeholder="—" id="p_${idx}" value="${ex.p || ''}"></td>
+        <td>
+          <div class="trn-set-cell">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set1op_${idx}" min="0">
+            <span class="trn-set-sep">/</span>
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set1kg_${idx}" step="0.5" min="0">
+          </div>
+        </td>
+        <td>
+          <div class="trn-set-cell">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set2op_${idx}" min="0">
+            <span class="trn-set-sep">/</span>
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set2kg_${idx}" step="0.5" min="0">
+          </div>
+        </td>
+        <td>
+          <div class="trn-set-cell">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set3op_${idx}" min="0">
+            <span class="trn-set-sep">/</span>
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set3kg_${idx}" step="0.5" min="0">
+          </div>
+        </td>
+        <td><input class="trn-note-input" type="text" placeholder="Poznámka…" id="note_${idx}" value="${ex.note || ''}"></td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = rows;
+}
+
+function collectFormData() {
+  const prog = PROGRAMS[activeProgramKey];
+  const day = prog.days[activeDayIndex];
+  return day.exercises.map((ex, idx) => ({
+    por: ex.por,
+    cvik: document.getElementById(`cvik_${idx}`)?.value || '',
+    series: document.getElementById(`series_${idx}`)?.value || ex.series,
+    tempo: document.getElementById(`tempo_${idx}`)?.value || '',
+    p: document.getElementById(`p_${idx}`)?.value || '',
+    set1op: document.getElementById(`set1op_${idx}`)?.value || '',
+    set1kg: document.getElementById(`set1kg_${idx}`)?.value || '',
+    set2op: document.getElementById(`set2op_${idx}`)?.value || '',
+    set2kg: document.getElementById(`set2kg_${idx}`)?.value || '',
+    set3op: document.getElementById(`set3op_${idx}`)?.value || '',
+    set3kg: document.getElementById(`set3kg_${idx}`)?.value || '',
+    note: document.getElementById(`note_${idx}`)?.value || '',
+  }));
+}
+
+function cancelProgram() {
+  activeProgramKey = null;
+  document.getElementById('trn-selector').style.display = 'flex';
+  document.getElementById('trn-active').style.display = 'none';
+}
+
+function endProgram() {
+  const prog = PROGRAMS[activeProgramKey];
+  const day = prog.days[activeDayIndex];
+  const data = collectFormData();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('sk-SK');
+
+  // Save to history
+  const entry = {
+    programKey: activeProgramKey,
+    programName: prog.name,
+    dayLabel: day.label,
+    date: dateStr,
+    timestamp: now.toISOString(),
+    exerciseCount: data.length,
+    exercises: data
+  };
+  trainingHistory.push(entry);
+  localStorage.setItem('trn_history', JSON.stringify(trainingHistory));
+
+  // Generate & download PDF
+  generatePDF(entry);
+
+  // Go back to selector
+  cancelProgram();
+  renderHistory();
+  showToast('Tréning uložený a PDF stiahnuté!', true);
+}
+
+function generatePDF(entry) {
+  // Build print-friendly HTML
+  const rows = entry.exercises.map(ex => `
+    <tr>
+      <td style="font-weight:700;color:#1A5080;padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.por}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;">${ex.cvik || '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.series || '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.tempo || '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.p || '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.set1op ? ex.set1op + ' / ' + (ex.set1kg || '—') + 'kg' : '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.set2op ? ex.set2op + ' / ' + (ex.set2kg || '—') + 'kg' : '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;text-align:center;">${ex.set3op ? ex.set3op + ' / ' + (ex.set3kg || '—') + 'kg' : '—'}</td>
+      <td style="padding:6px 8px;border:1px solid #DDE4EF;">${ex.note || ''}</td>
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<title>${entry.programName} – ${entry.dayLabel} – ${entry.date}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', Arial, sans-serif; font-size: 11px; color: #1A2636; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 900; color: #1E3A5F; letter-spacing: .04em; margin-bottom: 3px; }
+  .meta { font-size: 10px; color: #6B7D93; margin-bottom: 16px; }
+  .badge { display: inline-block; background: #EAF3FB; color: #1A5080; font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 2px 9px; border-radius: 20px; margin-right: 6px; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  thead th { background: #1E3A5F; color: #fff; padding: 7px 8px; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border: 1px solid #1A5080; text-align: left; }
+  tbody tr:nth-child(even) { background: #F5F8FD; }
+  @media print { body { padding: 12px; } }
+</style>
+</head>
+<body>
+  <div class="badge">Maglen Training Center</div>
+  <h1>${entry.programName} · ${entry.dayLabel}</h1>
+  <div class="meta">Dátum: ${entry.date} &nbsp;|&nbsp; Počet cvikov: ${entry.exerciseCount}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Por.</th><th>Cvik</th><th>Série×op</th><th>Tempo</th><th>P</th>
+        <th>Séria 1</th><th>Séria 2</th><th>Séria 3</th><th>Poznámka</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trening_${entry.programKey}_${entry.dayLabel.replace(/\s/g,'_')}_${entry.date.replace(/\./g,'-')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadHistoryPDF(idx) {
+  const entry = trainingHistory[idx];
+  if (entry) generatePDF(entry);
+}
+
+// Init on page load
+document.addEventListener('DOMContentLoaded', () => {
+  renderHistory();
+});
