@@ -785,51 +785,51 @@ async function restoreActiveState() {
     activeProgramKey = state.programKey;
     activeDayIndex = state.activeDayIndex || 0;
     dayExerciseCache = state.dayExercises || {};
-      activeStateUpdatedLocal = state.updated || null;
+    activeStateUpdatedLocal = state.updated || null;
     showActiveProgramView(state);
   } else {
     showProgramSelectionView();
-
-  async function pollActiveState() {
-    try {
-      const res = await fetch('/api/active_state');
-      const data = await res.json();
-      if (!data || data.status !== 'ok') return;
-
-      if (!data.state) {
-        const local = JSON.parse(localStorage.getItem(LOCAL_ACTIVE_KEY) || 'null');
-        if (local || activeProgramKey) {
-          await clearActiveState();
-          activeProgramKey = null;
-          activeDayIndex = 0;
-          dayExerciseCache = {};
-          showProgramSelectionView();
-          showToast('Tréning bol ukončený na inom zariadení', false);
-        }
-        return;
-      }
-
-      const serverUpdated = isoToMs(data.state.updated);
-      const localUpdated = isoToMs(activeStateUpdatedLocal || data.updated);
-      if (serverUpdated <= localUpdated) return;
-
-      activeProgramKey = data.state.programKey;
-      activeDayIndex = data.state.activeDayIndex || 0;
-      dayExerciseCache = data.state.dayExercises || {};
-      activeStateUpdatedLocal = data.state.updated || null;
-      saveActiveStateLocal(data.state);
-
-      if (document.getElementById('trn-active')?.style.display !== 'none') {
-        renderActiveProgramHeader();
-        renderExerciseTable();
-        showToast('Tréning bol aktualizovaný z iného zariadenia', true);
-      } else {
-        showActiveProgramView(data.state);
-      }
-    } catch (e) {
-      console.warn('Failed to poll active state', e);
-    }
   }
+}
+
+async function pollActiveState() {
+  try {
+    const res = await fetch('/api/active_state');
+    const data = await res.json();
+    if (!data || data.status !== 'ok') return;
+
+    if (!data.state) {
+      const local = JSON.parse(localStorage.getItem(LOCAL_ACTIVE_KEY) || 'null');
+      if (local || activeProgramKey) {
+        await clearActiveState();
+        activeProgramKey = null;
+        activeDayIndex = 0;
+        dayExerciseCache = {};
+        showProgramSelectionView();
+        showToast('Tréning bol ukončený na inom zariadení', false);
+      }
+      return;
+    }
+
+    const serverUpdated = isoToMs(data.state.updated);
+    const localUpdated = isoToMs(activeStateUpdatedLocal || data.updated);
+    if (serverUpdated <= localUpdated) return;
+
+    activeProgramKey = data.state.programKey;
+    activeDayIndex = data.state.activeDayIndex || 0;
+    dayExerciseCache = data.state.dayExercises || {};
+    activeStateUpdatedLocal = data.state.updated || null;
+    saveActiveStateLocal(data.state);
+
+    if (document.getElementById('trn-active')?.style.display !== 'none') {
+      renderActiveProgramHeader();
+      renderExerciseTable();
+      showToast('Tréning bol aktualizovaný z iného zariadenia', true);
+    } else {
+      showActiveProgramView(data.state);
+    }
+  } catch (e) {
+    console.warn('Failed to poll active state', e);
   }
 }
 const LOCAL_FOOD_KEY = 'food_log_state';
@@ -924,7 +924,6 @@ function startProgram(key) {
   saveActiveState(st);
   saveFoodLogState();
 }
-  saveFoodLogState();
 
 function renderActiveProgramHeader() {
   const prog = PROGRAMS[activeProgramKey];
@@ -1204,21 +1203,20 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   restoreActiveState();
   syncServerEntries();
+  restoreFoodLog();
 
   setInterval(syncServerEntries, 15000);
+  setInterval(pollActiveState, 6000);
+  setInterval(pollFoodLog, 8000);
   document.addEventListener('click', () => {
     document.querySelectorAll('.trn-hist-menu-list').forEach(m => m.classList.remove('open'));
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) syncServerEntries();
-  });
-  saveFoodLogState();
-});
-  restoreFoodLog();
-  setInterval(pollActiveState, 6000);
-  setInterval(pollFoodLog, 8000);
     if (!document.hidden) {
       syncServerEntries();
       pollActiveState();
       pollFoodLog();
     }
+  });
+  saveFoodLogState();
+});
