@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- ===== HORIZONTAL TOP NAVBAR ===== -->
+<nav class="topnav">
+  <!-- Logo -->
+  <div class="topnav-logo">
+    <div class="logo-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+    <div class="logo-text">Maglen Training Center<span></span></div>
+  </div>
+
+  <!-- Page title -->
+  <div class="topnav-title">Admin učet</div>
+
+  <!-- Nav links -->
+  <div class="topnav-links">
+    <a href="#" class="topnav-link" data-page="prehladd">
+      <i class="bi bi-house-door-fill"></i><span>Prehľad</span>
+    </a>
+    <a href="#" class="topnav-link active" data-page="kalendar">
+      <i class="bi bi-calendar3"></i><span>Kalendár</span>
+    </a>
+    <a href="#" class="topnav-link" data-page="klienti">
+      <i class="bi bi-people-fill"></i><span>Klienti</span>
+    </a>
+    <a href="#" class="topnav-link" data-page="skupTreningy">
+      <i class="bi bi-diagram-3-fill"></i><span>Skup. Tréningy</span>
+    </a>
+    <a href="#" class="topnav-link" data-page="nastavenia">
+      <i class="bi bi-gear-fill"></i><span>Nastavenia</span>
+    </a>
+  </div>
+
+  <!-- Admin -->
+  <div class="topnav-admin">
+    <span>ADMIN</span>
+    <div class="admin-avatar"><i class="bi bi-person-fill"></i></div>
+  </div>
+</nav>
+
+<!-- ===== APP BODY ===== -->
+<div class="app-body">
+
+  <!-- ===== LEFT: CALENDAR ===== -->
+  <section class="calendar-panel">
+    <div class="cal-header">
+      <button class="cal-nav" id="prevWeek"><i class="bi bi-chevron-left"></i></button>
+      <span class="cal-title">KALENDÁR</span>
+      <button class="cal-nav" id="nextWeek"><i class="bi bi-chevron-right"></i></button>
+    </div>
+
+    <div class="week-strip" id="weekStrip">
+      {% for d in week_days %}
+      <div class="day-col {% if d.active %}active{% endif %}" data-day="{{ loop.index0 }}">
+        <div class="day-label">{{ d.label }}</div>
+        <div class="day-num">{{ d.date }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="time-grid-wrap">
+      <div class="time-labels">
+        {% for h in range(8, 19) %}
+        <div class="time-label">{{ "%02d"|format(h) }}:00</div>
+        {% endfor %}
+      </div>
+      <div class="time-grid" id="timeGrid"></div>
+    </div>
+  </section>
+
+  <!-- ===== RIGHT: CLIENT PANEL ===== -->
+  <section class="client-panel">
+
+    <!-- Client header -->
+    <div class="client-header">
+      <div class="client-avatar">{{ client.avatar }}</div>
+      <div>
+        <h2 class="client-name">{{ client.name }}</h2>
+      </div>
+    </div>
+
+    <!-- Profile Tabs -->
+    <ul class="nav profile-tabs" id="profileTabs">
+      <li class="nav-item"><a class="nav-link" href="#" data-tab="prehladTab">Prehľad</a></li>
+      <li class="nav-item"><a class="nav-link" href="#" data-tab="treningTab">Tréning</a></li>
+      <li class="nav-item"><a class="nav-link active" href="#" data-tab="diagnostikaTab">Diagnostika</a></li>
+      <li class="nav-item"><a class="nav-link" href="#" data-tab="vyzivTab">Výživa</a></li>
+      <li class="nav-item"><a class="nav-link" href="#" data-tab="cetTab">ČET</a></li>
+    </ul>
+
+    <!-- Tab content area -->
+    <div class="tab-content-area">
+
+      <!-- ---- PREHĽAD TAB ---- -->
+      <div class="tab-panel" id="prehladTab">
+        <div class="empty-state">
+          <i class="bi bi-bar-chart-line"></i>
+          <p>Prehľad klienta – tu budú súhrnné štatistiky a aktivity.</p>
+        </div>
+      </div>
+
+      <!-- ---- TRÉNING TAB ---- -->
+      <div class="tab-panel" id="treningTab">
+
+        <!-- === PROGRAM SELECTOR === -->
+        <div id="trn-selector" class="trn-selector-wrap">
+          <div class="trn-selector-title"><i class="bi bi-lightning-charge-fill"></i> Vyber tréningový program</div>
+          <div class="trn-program-cards">
+
+            <div class="trn-program-card" data-program="GBCI1">
+              <div class="trn-prog-badge">Základný</div>
+              <div class="trn-prog-name">GBCI 1</div>
+              <div class="trn-prog-sub">Deň 1&3 · Deň 2&4</div>
+              <div class="trn-prog-meta"><i class="bi bi-layers"></i> 8 cvikov / deň &nbsp;·&nbsp; <i class="bi bi-calendar3"></i> 4× týždeň</div>
+              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('GBCI1')">Spustiť program</button>
+            </div>
+
+            <div class="trn-program-card" data-program="6-12-25">
+              <div class="trn-prog-badge trn-prog-badge--adv">Pokročilý</div>
+              <div class="trn-prog-name">6 – 12 – 25</div>
+              <div class="trn-prog-sub">Deň A · Deň B</div>
+              <div class="trn-prog-meta"><i class="bi bi-layers"></i> 9 cvikov / deň &nbsp;·&nbsp; <i class="bi bi-calendar3"></i> 2× týždeň</div>
+              <button class="btn-diag-blue mt-2 w-100" onclick="startProgram('6-12-25')">Spustiť program</button>
+            </div>
+
+          </div>
+
+          <!-- History -->
+          <div class="trn-history-section">
+            <div class="trn-history-header">
+              <span><i class="bi bi-clock-history"></i> História tréningov</span>
+            </div>
+            <div id="trn-history-list" class="trn-history-list">
+              <div class="trn-history-empty"><i class="bi bi-inbox"></i><p>Zatiaľ žiadne záznamy</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- === ACTIVE PROGRAM (hidden until started) === -->
+        <div id="trn-active" class="trn-active-wrap" style="display:none">
+
+          <div class="trn-active-header">
+            <div>
+              <span class="trn-active-badge" id="trn-active-badge">GBCI1</span>
+              <span class="trn-active-day" id="trn-active-day">Deň 1 a 3</span>
+            </div>
+            <div class="trn-day-switcher" id="trn-day-switcher"></div>
+          </div>
+
+          <!-- Exercises table -->
+          <div class="trn-table-wrap">
+            <table class="trn-table" id="trn-table">
+              <thead>
+                <tr>
+                  <th>Por.</th>
+                  <th>Cvik</th>
+                  <th>Série × op</th>
+                  <th>Tempo</th>
+                  <th>P</th>
+                  <th colspan="3">Záznam (op / váha)</th>
+                  <th>Poznámka</th>
+                </tr>
+              </thead>
+              <tbody id="trn-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="trn-active-footer">
+            <button class="btn-diag-outline" onclick="cancelProgram()"><i class="bi bi-arrow-left"></i> Späť</button>
+            <button class="btn-diag-blue" id="trn-end-btn" onclick="endProgram()"><i class="bi bi-check-circle"></i> Ukončiť & Uložiť ako PDF</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ---- DIAGNOSTIKA TAB ---- -->
+      <div class="tab-panel active" id="diagnostikaTab">
+        <div class="diag-grid">
+
+          <!-- Col 1 -->
+          <div class="diag-col">
+
+            <div class="diag-card">
+              <div class="diag-card-title">Vstupná diagnostika</div>
+              <button class="btn-diag-blue" id="btnVstupna">Vstupná diagnostika</button>
+            </div>
+
+            <div class="diag-card">
+              <div class="diag-card-title">Retest</div>
+              {% for r in retests %}
+              <div class="retest-row">
+                <span class="retest-date">Retest. {{ r.date }}</span>
+                <span class="retest-badge">{{ r.weeks }}</span>
+              </div>
+              {% endfor %}
+              <button class="btn-diag-outline mt-2" id="btnRetest">Naplanovat Retest </button>
+            </div>
+
+            <div class="diag-card">
+              <div class="diag-card-title d-flex align-items-center gap-1">
+                Nahratie fotiek <i class="bi bi-info-circle text-muted" style="font-size:.72rem"></i>
+              </div>
+              <div class="photo-thumbs">
+                <div class="photo-thumb"><i class="bi bi-person-standing"></i><span>predná</span></div>
+                <div class="photo-thumb"><i class="bi bi-person-standing"></i><span>zadna</span></div>
+                <div class="photo-add" id="photoAdd"><i class="bi bi-camera"></i></div>
+              </div>
+              <button class="btn-diag-outline" id="btnUploadFoto">Nahrat  fotiek</button>
+            </div>
+
+            <div class="diag-card">
+              <div class="diag-card-title d-flex align-items-center justify-content-between">
+                GRAF PROGRESU
+                <span class="text-muted" style="font-size:.7rem;font-weight:400">telesný tuk <i class="bi bi-question-circle"></i></span>
+              </div>
+              <div style="position:relative;height:90px;">
+                <canvas id="progressChart"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Col 2 -->
+          <div class="diag-col">
+
+        
+
+            <div class="diag-card">
+              <div class="diag-card-title">InBody merania</div>
+              <div class="inbody-label">InBody</div>
+              <div style="position:relative;height:80px;">
+                <canvas id="inbodyChart"></canvas>
+              </div>
+            </div>
+
+            <div class="diag-card">
+              <div class="diag-card-title">History</div>
+              <button class="btn-diag-outline" id="btnHistory">Zobraziť históriu</button>
+            </div>
+
+          </div>
+
+          <!-- Col 3 -->
+          <div class="diag-col">
+            <div class="diag-card online-card">
+              <div class="online-header">
+                <i class="bi bi-flag-fill text-warning"></i>
+                ONLINE KOUČING
+              </div>
+              <div class="online-item-title">Onl. Coach</div>
+              {% for item in online_coaching %}
+              <button class="btn-diag-blue mb-1 w-100 text-start online-btn" data-label="{{ item.label }}">
+                {{ item.label }}
+              </button>
+              {% endfor %}
+              <div class="online-separator">Zoznam potravín</div>
+              <button class="btn-diag-outline w-100 mb-1" id="btnZoznam">Zobraziť zoznam potravín</button>
+              <div class="online-separator">Stravovací denník<br><small class="text-muted" style="font-size:.65rem;font-weight:400">(Zápis hárkov)</small></div>
+              <button class="btn-diag-outline w-100" id="btnZapis">Zobraziť hárky</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ---- VÝŽIVA TAB ---- -->
+      <div class="tab-panel" id="vyzivTab">
+
+        <!-- Sub-tabs -->
+        <div class="vyzip-subtabs">
+          <button class="vyzip-subtab active" data-subtab="kalorickeTab">Kalorické tabuľky</button>
+          <button class="vyzip-subtab" data-subtab="planTab">Výživový plán</button>
+        </div>
+
+        <!-- ===== KALORICKÉ TABUĽKY ===== -->
+        <div class="vyzip-section active" id="kalorickeTab">
+          <div class="kal-container">
+
+            <!-- Summary macro cards -->
+            <div class="kal-summary">
+              <div class="kal-macro-card kal-calories">
+                <div class="kal-macro-icon"><i class="bi bi-fire"></i></div>
+                <div class="kal-macro-value" id="totalCalories">0</div>
+                <div class="kal-macro-label">Kalórie (kcal)</div>
+              </div>
+              <div class="kal-macro-card kal-carbs">
+                <div class="kal-macro-icon"><i class="bi bi-pentagon-fill"></i></div>
+                <div class="kal-macro-value" id="totalCarbs">0</div>
+                <div class="kal-macro-label">Sacharidy (g)</div>
+              </div>
+              <div class="kal-macro-card kal-proteins">
+                <div class="kal-macro-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                <div class="kal-macro-value" id="totalProteins">0</div>
+                <div class="kal-macro-label">Bielkoviny (g)</div>
+              </div>
+              <div class="kal-macro-card kal-fats">
+                <div class="kal-macro-icon"><i class="bi bi-droplet-fill"></i></div>
+                <div class="kal-macro-value" id="totalFats">0</div>
+                <div class="kal-macro-label">Tuky (g)</div>
+              </div>
+            </div>
+
+            <!-- Search -->
+            <div class="kal-search-wrap" id="kalSearchWrap">
+              <div class="kal-search-row">
+                <div class="kal-search-inner">
+                  <i class="bi bi-search kal-search-icon"></i>
+                  <input type="text" id="foodSearchInput" class="kal-search-input"
+                         placeholder="Vyhľadať potravinu (napr. kuracie prsia, jablko, ryža…)" autocomplete="off">
+                  <button class="kal-search-btn" id="foodSearchBtn">
+                    <i class="bi bi-search"></i> Hľadať
+                  </button>
+                </div>
+              </div>
+              <!-- Results dropdown -->
+              <div class="kal-results-box" id="foodSearchResults" style="display:none;"></div>
+              <!-- Add-food inline panel -->
+              <div class="kal-add-panel" id="addFoodPanel" style="display:none;">
+                <div class="kal-add-name" id="addFoodName"></div>
+                <div class="kal-add-macros" id="addFoodMacros"></div>
+                <div class="kal-add-row">
+                  <label class="kal-add-label">Množstvo (g):</label>
+                  <input type="number" id="qtyInput" class="kal-qty-input" value="100" min="1" max="9999">
+                  <button class="btn-diag-blue kal-confirm-btn" id="confirmAddBtn">
+                    <i class="bi bi-plus-lg"></i> Pridať
+                  </button>
+                  <button class="btn-diag-outline kal-cancel-btn" id="cancelAddBtn">Zrušiť</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Food log -->
+            <div class="kal-log-card">
+              <div class="kal-log-header">
+                <span class="kal-log-title"><i class="bi bi-journal-check"></i> Denný jedálniček</span>
+                <button class="btn-diag-outline kal-clear-btn" id="clearLogBtn">
+                  <i class="bi bi-trash3"></i> Vyčistiť
+                </button>
+              </div>
+              <div class="kal-table-wrap">
+                <table class="kal-table">
+                  <thead>
+                    <tr>
+                      <th>Potravina</th>
+                      <th>Množstvo</th>
+                      <th>Kcal</th>
+                      <th>Sacharidy</th>
+                      <th>Bielkoviny</th>
+                      <th>Tuky</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="foodLogBody">
+                    <tr id="emptyLogRow">
+                      <td colspan="7" class="kal-empty-row">
+                        <i class="bi bi-egg-fried"></i>
+                        <p>Zatiaľ žiadne potraviny. Vyhľadajte a pridajte potraviny vyššie.</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- /kal-container -->
+        </div><!-- /kalorickeTab -->
+
+        <!-- ===== VÝŽIVOVÝ PLÁN ===== -->
+        <div class="vyzip-section" id="planTab">
+          <div class="empty-state">
+            <i class="bi bi-journal-text"></i>
+            <p>Výživový plán klienta.</p>
+          </div>
+        </div>
+
+      </div><!-- /vyzivTab -->
+
+      <!-- ---- ČET TAB ---- -->
+      <div class="tab-panel" id="cetTab">
+        <div class="empty-state">
+          <i class="bi bi-chat-dots"></i>
+          <p>Správy a komunikácia s klientom.</p>
+        </div>
+      </div>
+
+    </div><!-- /tab-content-area -->
+  </section>
+
+</div><!-- /app-body -->
+
+<!-- ===== SESSION DETAIL MODAL ===== -->
+<div class="modal fade" id="sessionModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sessionModalTitle">Tréning</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="sessionModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zavrieť</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btnEditSession">Upraviť</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="liveToast" class="toast align-items-center border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMsg">OK</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  const SESSIONS  = {{ sessions | tojson }};
+  const PROGRESS  = {{ progress_data | tojson }};
+  const INBODY    = {{ inbody_data | tojson }};
+  const WEEK_DAYS = {{ week_days | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
