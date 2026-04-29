@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const PROGRAMS = {
   'GBCI1': {
-    name: 'GBCI 1',
+    name: 'Plan 1',
     level: 'Základný',
     days: [
       {
@@ -517,7 +517,7 @@ const PROGRAMS = {
     ]
   },
   '6-12-25': {
-    name: '6 – 12 – 25',
+    name: 'Plan 2',
     level: 'Pokročilý',
     days: [
       {
@@ -945,6 +945,62 @@ function switchDay(idx) {
   if (state) saveActiveState(state);
 }
 
+function normalizeExerciseName(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function buildPrevExerciseMap() {
+  const map = {};
+  const entries = trainingHistory.slice().sort((a, b) => {
+    const aKey = a.timestamp ? Date.parse(a.timestamp) : (a.id || 0);
+    const bKey = b.timestamp ? Date.parse(b.timestamp) : (b.id || 0);
+    return (bKey || 0) - (aKey || 0);
+  });
+
+  entries.forEach(entry => {
+    (entry.exercises || []).forEach(ex => {
+      const key = normalizeExerciseName(ex.cvik);
+      if (!key || map[key]) return;
+      map[key] = {
+        set1op: ex.set1op || '',
+        set1kg: ex.set1kg || '',
+        set2op: ex.set2op || '',
+        set2kg: ex.set2kg || '',
+        set3op: ex.set3op || '',
+        set3kg: ex.set3kg || '',
+      };
+    });
+  });
+
+  return map;
+}
+
+function applyPrevPlaceholders(idx, prevMap) {
+  const apply = (id, fallback) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const parts = id.split('_')[0];
+    const setNum = parts.replace('set', '').replace('op', '').replace('kg', '');
+    const isKg = id.includes('kg');
+    const isOp = id.includes('op');
+    
+    if (isOp) {
+      const key = `set${setNum}op`;
+      if (prevMap[key]) el.setAttribute('placeholder', prevMap[key]);
+    } else if (isKg) {
+      const key = `set${setNum}kg`;
+      if (prevMap[key]) el.setAttribute('placeholder', prevMap[key]);
+    }
+  };
+
+  apply(`set1op_${idx}`);
+  apply(`set1kg_${idx}`);
+  apply(`set2op_${idx}`);
+  apply(`set2kg_${idx}`);
+  apply(`set3op_${idx}`);
+  apply(`set3kg_${idx}`);
+}
+
 function renderExerciseTable() {
   const prog = PROGRAMS[activeProgramKey];
   const day = prog.days[activeDayIndex];
@@ -972,23 +1028,23 @@ function renderExerciseTable() {
         <td><input class="trn-p-input" type="text" placeholder="—" id="p_${idx}" value="${ex.p || ''}"></td>
         <td>
           <div class="trn-set-cell">
-            <input class="trn-set-inp" type="number" placeholder="op" id="set1op_${idx}" min="0">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set1op_${idx}" value="${ex.set1op || ''}" min="0">
             <span class="trn-set-sep">/</span>
-            <input class="trn-set-inp" type="number" placeholder="kg" id="set1kg_${idx}" step="0.5" min="0">
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set1kg_${idx}" value="${ex.set1kg || ''}" step="0.5" min="0">
           </div>
         </td>
         <td>
           <div class="trn-set-cell">
-            <input class="trn-set-inp" type="number" placeholder="op" id="set2op_${idx}" min="0">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set2op_${idx}" value="${ex.set2op || ''}" min="0">
             <span class="trn-set-sep">/</span>
-            <input class="trn-set-inp" type="number" placeholder="kg" id="set2kg_${idx}" step="0.5" min="0">
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set2kg_${idx}" value="${ex.set2kg || ''}" step="0.5" min="0">
           </div>
         </td>
         <td>
           <div class="trn-set-cell">
-            <input class="trn-set-inp" type="number" placeholder="op" id="set3op_${idx}" min="0">
+            <input class="trn-set-inp" type="number" placeholder="op" id="set3op_${idx}" value="${ex.set3op || ''}" min="0">
             <span class="trn-set-sep">/</span>
-            <input class="trn-set-inp" type="number" placeholder="kg" id="set3kg_${idx}" step="0.5" min="0">
+            <input class="trn-set-inp" type="number" placeholder="kg" id="set3kg_${idx}" value="${ex.set3kg || ''}" step="0.5" min="0">
           </div>
         </td>
         <td><input class="trn-note-input" type="text" placeholder="Poznámka…" id="note_${idx}" value="${ex.note || ''}"></td>
@@ -998,7 +1054,11 @@ function renderExerciseTable() {
 
   tbody.innerHTML = rows;
 
-  // Inputs are already filled from cached day data
+  // Apply previous exercise placeholders
+  const prevMap = buildPrevExerciseMap();
+  exercises.forEach((ex, idx) => {
+    applyPrevPlaceholders(idx, prevMap[normalizeExerciseName(ex.cvik)] || {});
+  });
 
   // Attach input listeners to autosave progress (debounced)
   const saveDebounced = debounce(() => {
@@ -1040,15 +1100,22 @@ function cancelProgram(clear = false) {
   }
 }
 
-async function endProgram() {
+async function saveProgress() {
   if (!activeProgramKey) return;
+  const ok = window.confirm('Naozaj chcete uložiť a uzavrieť tento tréning (deň)?');
+  if (!ok) return;
+
   const prog = PROGRAMS[activeProgramKey];
   const day = prog.days[activeDayIndex];
   const data = collectFormData();
   const now = new Date();
   const dateStr = now.toLocaleDateString('sk-SK');
-  const defaultTitle = `${prog.name} - ${day.label} - ${dateStr}`;
-  const inputTitle = window.prompt('Nazov treningu', defaultTitle);
+
+  const clientNameEl = document.querySelector('.client-name');
+  const clientName = clientNameEl ? clientNameEl.textContent.trim() : 'Klient';
+  const timeStr = now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+  const defaultTitle = `${clientName} - ${prog.name} - ${day.label} ${dateStr} ${timeStr}`;
+  const inputTitle = window.prompt('Názov tréningu', defaultTitle);
   if (inputTitle === null) return;
   const finalTitle = inputTitle.trim() || defaultTitle;
 
@@ -1063,7 +1130,6 @@ async function endProgram() {
     exerciseCount: data.length,
     exercises: data
   };
-  // Try to save on server (best-effort). If successful, server will return an id.
   try {
     const res = await fetch('/api/save_entry', {
       method: 'POST',
@@ -1071,28 +1137,42 @@ async function endProgram() {
       body: JSON.stringify(entry),
     });
     const resp = await res.json();
-    if (resp && resp.status === 'ok' && resp.id) {
-      entry.id = resp.id;
-    }
+    if (resp && resp.status === 'ok' && resp.id) entry.id = resp.id;
   } catch (e) {
-    console.warn('Failed to save entry on server, keeping local copy', e);
+    console.warn('Failed to save entry on server');
     showToast('Uložené lokálne (offline)', false);
   }
 
   trainingHistory.push(entry);
   localStorage.setItem('trn_history', JSON.stringify(trainingHistory));
-  // Generate & download PDF
-  generatePDF(entry);
 
-  // Go back to selector
-  // clear active program (we finished it)
+  if (dayExerciseCache[activeDayIndex]) {
+    dayExerciseCache[activeDayIndex] = dayExerciseCache[activeDayIndex].map(ex => ({
+      ...ex, set1op: '', set1kg: '', set2op: '', set2kg: '', set3op: '', set3kg: ''
+    }));
+  }
+
+  await clearActiveState();
+  const resetState = { programKey: activeProgramKey, activeDayIndex, dayExercises: dayExerciseCache, updated: new Date().toISOString() };
+  saveActiveState(resetState);
+
+  renderExerciseTable();
+  renderHistory();
+  showToast('Výsledky uložené. Čaká sa na ďalšie zadania.', true);
+}
+
+async function endProgram() {
+  if (!activeProgramKey) return;
+  const ok = window.confirm('Naozaj chcete natrvalo ukončiť celý prebiehajúci program?');
+  if (!ok) return;
+
   await clearActiveState();
   activeProgramKey = null;
   activeDayIndex = 0;
   dayExerciseCache = {};
   showProgramSelectionView();
   renderHistory();
-  showToast('Tréning archivovaný!', true);
+  showToast('Program ukončený a archivovaný!', true);
 }
 
 function generatePDF(entry) {
@@ -1166,12 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveBtn = document.getElementById('trn-save-btn');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
-      const state = getCurrentActiveState();
-      if (state) {
-        saveActiveState(state);
-        showToast('Postup uložený!', true);
-        showActiveProgramView(state);
-      }
+      saveProgress();
     });
   }
 

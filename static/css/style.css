@@ -674,6 +674,14 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
   border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,127,191,.1);
 }
 .trn-cvik-input { min-width: 120px; }
+.trn-prev-line {
+  margin-top: 4px;
+  font-size: .62rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .trn-series-input { width: 60px; text-align: center; }
 .trn-tempo-input { width: 60px; text-align: center; }
 .trn-p-input { width: 44px; text-align: center; }
