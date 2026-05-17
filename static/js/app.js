@@ -1295,3 +1295,345 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   saveFoodLogState();
 });
+
+/* ============================================================
+   PAGE NAVIGATION
+   ============================================================ */
+const PAGE_MAP = {
+  'prehladd':    'pagePrehladd',
+  'kalendar':    'pageKalendar',
+  'klienti':     'pageKlienti',
+  'treneri':     'pageTreneri',
+  'skupTreningy':'pageSkupTreningy',
+  'nastavenia':  'pageNastavenia',
+};
+
+function switchPage(pageKey) {
+  document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.topnav-link').forEach(l => l.classList.remove('active'));
+
+  const pageId = PAGE_MAP[pageKey];
+  if (pageId) document.getElementById(pageId)?.classList.add('active');
+  document.querySelector(`.topnav-link[data-page="${pageKey}"]`)?.classList.add('active');
+
+  if (pageKey === 'prehladd') loadGymOverview();
+  if (pageKey === 'klienti')  loadClients();
+  if (pageKey === 'treneri')  loadTrainers();
+  if (pageKey === 'kalendar') { setTimeout(renderSessions, 50); }
+}
+
+document.querySelectorAll('.topnav-link').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    switchPage(link.dataset.page);
+  });
+});
+
+// Default: show kalendar
+switchPage('kalendar');
+
+/* ============================================================
+   GYM OVERVIEW
+   ============================================================ */
+async function loadGymOverview() {
+  try {
+    const res = await fetch('/api/gym/overview');
+    const data = await res.json();
+    if (data.status !== 'ok') return;
+
+    document.getElementById('gymDate').textContent = new Date().toLocaleDateString('sk-SK', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('statClients').textContent = data.total_clients;
+    document.getElementById('statTrainers').textContent = data.total_trainers;
+    document.getElementById('statSessions').textContent = data.total_sessions_week;
+    document.getElementById('statRevenue').textContent = data.monthly_revenue + ' €';
+    document.getElementById('statBf').textContent = data.avg_body_fat + ' %';
+    document.getElementById('statWeight').textContent = data.avg_weight + ' kg';
+
+    const maxClients = Math.max(...data.trainer_load.map(t => t.clients), 1);
+    const container = document.getElementById('trainerLoadTable');
+    container.innerHTML = data.trainer_load.map(t => `
+      <div class="trainer-load-row">
+        <div class="trainer-load-avatar">${t.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+        <div class="trainer-load-name">${t.name}</div>
+        <div class="trainer-load-bar-wrap">
+          <div class="trainer-load-bar" style="width:${Math.round(t.clients/maxClients*100)}%"></div>
+        </div>
+        <div class="trainer-load-count">${t.clients} klientov</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.error('Gym overview error', e);
+  }
+}
+
+/* ============================================================
+   CLIENTS
+   ============================================================ */
+let allClients = [];
+let allTrainers = [];
+let currentClientId = null;
+
+async function loadClients() {
+  try {
+    const [cRes, tRes] = await Promise.all([fetch('/api/clients'), fetch('/api/trainers')]);
+    const cData = await cRes.json();
+    const tData = await tRes.json();
+    allClients = cData.clients || [];
+    allTrainers = tData.trainers || [];
+    renderClientCards(allClients);
+    document.getElementById('clientCount').textContent = `${allClients.length} klientov celkom`;
+  } catch(e) {
+    console.error('Load clients error', e);
+  }
+}
+
+function renderClientCards(clients) {
+  const grid = document.getElementById('clientCardsGrid');
+  if (!clients.length) {
+    grid.innerHTML = '<div class="list-loading"><i class="bi bi-people"></i> Žiadni klienti nenájdení.</div>';
+    return;
+  }
+  grid.innerHTML = clients.map(c => `
+    <div class="client-card" data-id="${c.id}" onclick="openClientDetail(${c.id})">
+      <div class="client-card-header">
+        <div class="client-card-avatar">${c.avatar || c.name.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="client-card-name">${c.name}</div>
+          <span class="client-card-plan">${c.plan || 'Bez plánu'}</span>
+        </div>
+      </div>
+      <div class="client-card-meta">
+        ${c.email ? `<div class="client-card-meta-row"><i class="bi bi-envelope"></i>${c.email}</div>` : ''}
+        ${c.phone ? `<div class="client-card-meta-row"><i class="bi bi-phone"></i>${c.phone}</div>` : ''}
+        ${c.goal  ? `<div class="client-card-meta-row"><i class="bi bi-bullseye"></i>${c.goal}</div>` : ''}
+      </div>
+      <div class="client-card-footer">
+        <span class="client-card-trainer"><i class="bi bi-person-badge"></i>${c.trainer_name || 'Bez trénera'}</span>
+        <i class="bi bi-chevron-right client-card-arrow"></i>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Search
+document.getElementById('clientSearch')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  renderClientCards(allClients.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    (c.email||'').toLowerCase().includes(q) ||
+    (c.goal||'').toLowerCase().includes(q) ||
+    (c.trainer_name||'').toLowerCase().includes(q)
+  ));
+});
+
+function openClientDetail(id) {
+  const c = allClients.find(x => x.id === id);
+  if (!c) return;
+  currentClientId = id;
+
+  document.getElementById('cmAvatar').textContent   = c.avatar || c.name.slice(0,2).toUpperCase();
+  document.getElementById('cmName').textContent     = c.name;
+  document.getElementById('cmPlan').textContent     = c.plan || 'Bez plánu';
+  document.getElementById('cmEmail').textContent    = c.email || '—';
+  document.getElementById('cmPhone').textContent    = c.phone || '—';
+  document.getElementById('cmBirthdate').textContent = c.birthdate ? new Date(c.birthdate).toLocaleDateString('sk-SK') : '—';
+  document.getElementById('cmGoal').textContent     = c.goal || '—';
+  document.getElementById('cmPlanVal').textContent  = c.plan || '—';
+  document.getElementById('cmTrainer').textContent  = c.trainer_name || '—';
+  document.getElementById('cmWeight').textContent   = c.weight ?? '—';
+  document.getElementById('cmHeight').textContent   = c.height ?? '—';
+  document.getElementById('cmBf').textContent       = c.body_fat ?? '—';
+  document.getElementById('cmNotesVal').textContent = c.notes || '—';
+
+  // Reset tabs
+  document.querySelectorAll('.cm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.cm-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('.cm-tab[data-cmtab="cmInfo"]')?.classList.add('active');
+  document.getElementById('cmInfo')?.classList.add('active');
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).show();
+}
+
+// Client modal tabs
+document.querySelectorAll('.cm-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.dataset.cmtab;
+    document.querySelectorAll('.cm-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cm-tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(tabId)?.classList.add('active');
+  });
+});
+
+// Add client button
+document.getElementById('btnAddClient')?.addEventListener('click', () => {
+  currentClientId = null;
+  document.getElementById('addClientModalTitle').innerHTML = '<i class="bi bi-person-plus-fill"></i> Pridať klienta';
+  ['fc_name','fc_email','fc_phone','fc_birthdate','fc_goal','fc_plan','fc_weight','fc_height','fc_bf','fc_notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('editClientId').value = '';
+  populateTrainerSelect('fc_trainer', null);
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).show();
+});
+
+// Edit client
+document.getElementById('btnEditClient')?.addEventListener('click', () => {
+  const c = allClients.find(x => x.id === currentClientId);
+  if (!c) return;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).hide();
+  document.getElementById('addClientModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Upraviť klienta';
+  document.getElementById('editClientId').value = c.id;
+  document.getElementById('fc_name').value = c.name || '';
+  document.getElementById('fc_email').value = c.email || '';
+  document.getElementById('fc_phone').value = c.phone || '';
+  document.getElementById('fc_birthdate').value = c.birthdate || '';
+  document.getElementById('fc_goal').value = c.goal || '';
+  document.getElementById('fc_plan').value = c.plan || '';
+  document.getElementById('fc_weight').value = c.weight || '';
+  document.getElementById('fc_height').value = c.height || '';
+  document.getElementById('fc_bf').value = c.body_fat || '';
+  document.getElementById('fc_notes').value = c.notes || '';
+  populateTrainerSelect('fc_trainer', c.trainer_id);
+  setTimeout(() => bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).show(), 200);
+});
+
+// Delete client
+document.getElementById('btnDeleteClient')?.addEventListener('click', async () => {
+  if (!currentClientId) return;
+  const c = allClients.find(x => x.id === currentClientId);
+  if (!confirm(`Naozaj vymazať klienta "${c?.name}"?`)) return;
+  try {
+    const res = await fetch(`/api/clients/${currentClientId}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast('Klient vymazaný');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).hide();
+      loadClients();
+    } else {
+      showToast(data.message, false);
+    }
+  } catch(e) { showToast('Chyba pri mazaní', false); }
+});
+
+// Save client
+document.getElementById('btnSaveClient')?.addEventListener('click', async () => {
+  const name = document.getElementById('fc_name').value.trim();
+  if (!name) { showToast('Zadajte meno klienta', false); return; }
+
+  const editId = document.getElementById('editClientId').value;
+  const payload = {
+    name, email: document.getElementById('fc_email').value,
+    phone: document.getElementById('fc_phone').value,
+    birthdate: document.getElementById('fc_birthdate').value,
+    goal: document.getElementById('fc_goal').value,
+    plan: document.getElementById('fc_plan').value,
+    weight: parseFloat(document.getElementById('fc_weight').value) || null,
+    height: parseFloat(document.getElementById('fc_height').value) || null,
+    body_fat: parseFloat(document.getElementById('fc_bf').value) || null,
+    notes: document.getElementById('fc_notes').value,
+    trainer_id: parseInt(document.getElementById('fc_trainer').value) || null,
+  };
+
+  try {
+    const url = editId ? `/api/clients/${editId}` : '/api/clients';
+    const method = editId ? 'PUT' : 'POST';
+    const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast(editId ? 'Klient aktualizovaný' : 'Klient pridaný');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).hide();
+      loadClients();
+    } else {
+      showToast(data.message, false);
+    }
+  } catch(e) { showToast('Chyba pri ukladaní', false); }
+});
+
+function populateTrainerSelect(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— bez trénera —</option>' +
+    allTrainers.map(t => `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${t.name}</option>`).join('');
+}
+
+/* ============================================================
+   TRAINERS
+   ============================================================ */
+async function loadTrainers() {
+  try {
+    const res = await fetch('/api/trainers');
+    const data = await res.json();
+    allTrainers = data.trainers || [];
+    renderTrainerCards(allTrainers);
+    document.getElementById('trainerCount').textContent = `${allTrainers.length} trénerov celkom`;
+  } catch(e) { console.error('Load trainers error', e); }
+}
+
+function renderTrainerCards(trainers) {
+  const grid = document.getElementById('trainerCardsGrid');
+  if (!trainers.length) {
+    grid.innerHTML = '<div class="list-loading"><i class="bi bi-person-badge"></i> Žiadni tréneri nenájdení.</div>';
+    return;
+  }
+  grid.innerHTML = trainers.map(t => `
+    <div class="trainer-card">
+      <div class="trainer-card-header">
+        <div class="trainer-card-avatar">${t.avatar || t.name.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="trainer-card-name">${t.name}</div>
+          <div class="trainer-card-spec">${t.specialization || 'Tréner'}</div>
+        </div>
+      </div>
+      <div class="trainer-card-meta">
+        ${t.email ? `<div class="trainer-card-meta-row"><i class="bi bi-envelope"></i>${t.email}</div>` : ''}
+        ${t.phone ? `<div class="trainer-card-meta-row"><i class="bi bi-phone"></i>${t.phone}</div>` : ''}
+      </div>
+      <div class="trainer-card-footer">
+        <span class="trainer-client-badge"><i class="bi bi-people"></i> ${t.client_count} klientov</span>
+        <button class="btn-trainer-delete" onclick="deleteTrainer(${t.id},'${t.name}')">
+          <i class="bi bi-trash3"></i> Vymazať
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btnAddTrainer')?.addEventListener('click', () => {
+  ['ft_name','ft_email','ft_phone','ft_spec'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('addTrainerModal')).show();
+});
+
+document.getElementById('btnSaveTrainer')?.addEventListener('click', async () => {
+  const name = document.getElementById('ft_name').value.trim();
+  if (!name) { showToast('Zadajte meno trénera', false); return; }
+  const payload = {
+    name, email: document.getElementById('ft_email').value,
+    phone: document.getElementById('ft_phone').value,
+    specialization: document.getElementById('ft_spec').value,
+  };
+  try {
+    const res = await fetch('/api/trainers', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast('Tréner pridaný');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('addTrainerModal')).hide();
+      loadTrainers();
+    } else {
+      showToast(data.message, false);
+    }
+  } catch(e) { showToast('Chyba pri ukladaní', false); }
+});
+
+async function deleteTrainer(id, name) {
+  if (!confirm(`Naozaj vymazať trénera "${name}"? Klienti budú odradení.`)) return;
+  try {
+    const res = await fetch(`/api/trainers/${id}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('Tréner vymazaný'); loadTrainers(); }
+    else showToast(data.message, false);
+  } catch(e) { showToast('Chyba pri mazaní', false); }
+}
