@@ -1308,6 +1308,11 @@ const PAGE_MAP = {
   'nastavenia':  'pageNastavenia',
 };
 
+function switchPageRaw(pageId) {
+  document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId)?.classList.add('active');
+}
+
 function switchPage(pageKey) {
   document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.topnav-link').forEach(l => l.classList.remove('active'));
@@ -1426,43 +1431,135 @@ document.getElementById('clientSearch')?.addEventListener('input', function() {
   ));
 });
 
+let cdProgressChart = null;
+let cdInbodyChart = null;
+
 function openClientDetail(id) {
   const c = allClients.find(x => x.id === id);
   if (!c) return;
   currentClientId = id;
 
-  document.getElementById('cmAvatar').textContent   = c.avatar || c.name.slice(0,2).toUpperCase();
-  document.getElementById('cmName').textContent     = c.name;
-  document.getElementById('cmPlan').textContent     = c.plan || 'Bez plánu';
-  document.getElementById('cmEmail').textContent    = c.email || '—';
-  document.getElementById('cmPhone').textContent    = c.phone || '—';
-  document.getElementById('cmBirthdate').textContent = c.birthdate ? new Date(c.birthdate).toLocaleDateString('sk-SK') : '—';
-  document.getElementById('cmGoal').textContent     = c.goal || '—';
-  document.getElementById('cmPlanVal').textContent  = c.plan || '—';
-  document.getElementById('cmTrainer').textContent  = c.trainer_name || '—';
-  document.getElementById('cmWeight').textContent   = c.weight ?? '—';
-  document.getElementById('cmHeight').textContent   = c.height ?? '—';
-  document.getElementById('cmBf').textContent       = c.body_fat ?? '—';
-  document.getElementById('cmNotesVal').textContent = c.notes || '—';
+  // Populate sidebar
+  document.getElementById('cdAvatar').textContent   = c.avatar || c.name.slice(0,2).toUpperCase();
+  document.getElementById('cdName').textContent     = c.name;
+  document.getElementById('cdPlanBadge').textContent = c.plan || 'Bez plánu';
+  document.getElementById('cdEmail').textContent    = c.email || '—';
+  document.getElementById('cdPhone').textContent    = c.phone || '—';
+  document.getElementById('cdBirthdate').textContent = c.birthdate ? new Date(c.birthdate).toLocaleDateString('sk-SK') : '—';
+  document.getElementById('cdGoal').textContent     = c.goal || '—';
+  document.getElementById('cdTrainer').textContent  = c.trainer_name || 'Bez trénera';
+  document.getElementById('cdWeight').textContent   = c.weight ?? '—';
+  document.getElementById('cdHeight').textContent   = c.height ?? '—';
+  document.getElementById('cdBf').textContent       = c.body_fat ?? '—';
 
-  // Reset tabs
-  document.querySelectorAll('.cm-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.cm-tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelector('.cm-tab[data-cmtab="cmInfo"]')?.classList.add('active');
-  document.getElementById('cmInfo')?.classList.add('active');
+  // Prehľad tab
+  document.getElementById('cdPrehladNotes').textContent = c.notes || 'Žiadne poznámky.';
+  document.getElementById('cdStatSessions').textContent = '0';
+  if (c.body_fat) document.getElementById('cdStatBfChange').textContent = c.body_fat + '%';
+  if (c.created_at) {
+    const days = Math.floor((new Date() - new Date(c.created_at)) / 86400000);
+    document.getElementById('cdStatDays').textContent = days;
+  }
 
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).show();
+  // Retest list in diagnostika
+  const retestEl = document.getElementById('cdRetestList');
+  if (retestEl) retestEl.innerHTML = `
+    <div class="retest-row"><span class="retest-date">Retest. —</span><span class="retest-badge">12 týždňov</span></div>
+  `;
+
+  // Switch to detail page
+  switchPageRaw('pageClientDetail');
+
+  // Reset to diagnostika tab
+  document.querySelectorAll('.cd-tabs .nav-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.cd-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('.cd-tabs .nav-link[data-cdtab="cdDiagTab"]')?.classList.add('active');
+  document.getElementById('cdDiagTab')?.classList.add('active');
+
+  // Draw charts after DOM is visible
+  setTimeout(() => {
+    if (cdProgressChart) { cdProgressChart.destroy(); cdProgressChart = null; }
+    if (cdInbodyChart)   { cdInbodyChart.destroy();   cdInbodyChart = null; }
+    const progCtx = document.getElementById('cdProgressChart');
+    const inbCtx  = document.getElementById('cdInbodyChart');
+    if (progCtx) {
+      cdProgressChart = new Chart(progCtx, {
+        type:'line',
+        data:{ labels: PROGRESS.labels, datasets:[{ data: PROGRESS.values, borderColor:'#2F7FBF', backgroundColor:'rgba(47,127,191,.12)', fill:true, tension:0.4, pointRadius:3, borderWidth:2 }] },
+        options:{ plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{font:{size:9},color:'#6B7D93'}}, y:{grid:{color:'#DDE4EF'},ticks:{font:{size:9},color:'#6B7D93'}} }, responsive:true, maintainAspectRatio:false }
+      });
+    }
+    if (inbCtx) {
+      cdInbodyChart = new Chart(inbCtx, {
+        type:'line',
+        data:{ labels: INBODY.labels, datasets:[{ data: INBODY.values, borderColor:'#2A9D8F', backgroundColor:'rgba(42,157,143,.1)', fill:true, tension:0.4, pointRadius:2, borderWidth:2 }] },
+        options:{ plugins:{legend:{display:false}}, scales:{ x:{display:false}, y:{position:'right',grid:{color:'#DDE4EF'},ticks:{font:{size:9},color:'#6B7D93'}} }, responsive:true, maintainAspectRatio:false }
+      });
+    }
+  }, 80);
 }
 
-// Client modal tabs
-document.querySelectorAll('.cm-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tabId = btn.dataset.cmtab;
-    document.querySelectorAll('.cm-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.cm-tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
+// Client detail tabs
+document.querySelectorAll('.cd-tabs .nav-link').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const tabId = link.dataset.cdtab;
+    document.querySelectorAll('.cd-tabs .nav-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.cd-tab-panel').forEach(p => p.classList.remove('active'));
+    link.classList.add('active');
     document.getElementById(tabId)?.classList.add('active');
   });
+});
+
+// Výživa sub-tabs in client detail
+document.querySelectorAll('#cdVyzivTab .vyzip-subtab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.subtab;
+    document.querySelectorAll('#cdVyzivTab .vyzip-subtab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#cdVyzivTab .vyzip-section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(target)?.classList.add('active');
+  });
+});
+
+// Back button
+document.getElementById('cdBackBtn')?.addEventListener('click', () => {
+  switchPage('klienti');
+});
+
+// Edit from sidebar
+document.getElementById('cdEditBtn')?.addEventListener('click', () => {
+  const c = allClients.find(x => x.id === currentClientId);
+  if (!c) return;
+  document.getElementById('addClientModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Upraviť klienta';
+  document.getElementById('editClientId').value = c.id;
+  document.getElementById('fc_name').value = c.name || '';
+  document.getElementById('fc_email').value = c.email || '';
+  document.getElementById('fc_phone').value = c.phone || '';
+  document.getElementById('fc_birthdate').value = c.birthdate || '';
+  document.getElementById('fc_goal').value = c.goal || '';
+  document.getElementById('fc_plan').value = c.plan || '';
+  document.getElementById('fc_weight').value = c.weight || '';
+  document.getElementById('fc_height').value = c.height || '';
+  document.getElementById('fc_bf').value = c.body_fat || '';
+  document.getElementById('fc_notes').value = c.notes || '';
+  populateTrainerSelect('fc_trainer', c.trainer_id);
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).show();
+});
+
+// Delete from sidebar
+document.getElementById('cdDeleteBtn')?.addEventListener('click', async () => {
+  if (!currentClientId) return;
+  const c = allClients.find(x => x.id === currentClientId);
+  if (!confirm(`Naozaj vymazať klienta "${c?.name}"?`)) return;
+  try {
+    const res = await fetch(`/api/clients/${currentClientId}`, {method:'DELETE'});
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast('Klient vymazaný');
+      switchPage('klienti');
+    } else { showToast(data.message, false); }
+  } catch(e) { showToast('Chyba pri mazaní', false); }
 });
 
 // Add client button
@@ -1478,44 +1575,7 @@ document.getElementById('btnAddClient')?.addEventListener('click', () => {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).show();
 });
 
-// Edit client
-document.getElementById('btnEditClient')?.addEventListener('click', () => {
-  const c = allClients.find(x => x.id === currentClientId);
-  if (!c) return;
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).hide();
-  document.getElementById('addClientModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Upraviť klienta';
-  document.getElementById('editClientId').value = c.id;
-  document.getElementById('fc_name').value = c.name || '';
-  document.getElementById('fc_email').value = c.email || '';
-  document.getElementById('fc_phone').value = c.phone || '';
-  document.getElementById('fc_birthdate').value = c.birthdate || '';
-  document.getElementById('fc_goal').value = c.goal || '';
-  document.getElementById('fc_plan').value = c.plan || '';
-  document.getElementById('fc_weight').value = c.weight || '';
-  document.getElementById('fc_height').value = c.height || '';
-  document.getElementById('fc_bf').value = c.body_fat || '';
-  document.getElementById('fc_notes').value = c.notes || '';
-  populateTrainerSelect('fc_trainer', c.trainer_id);
-  setTimeout(() => bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).show(), 200);
-});
-
-// Delete client
-document.getElementById('btnDeleteClient')?.addEventListener('click', async () => {
-  if (!currentClientId) return;
-  const c = allClients.find(x => x.id === currentClientId);
-  if (!confirm(`Naozaj vymazať klienta "${c?.name}"?`)) return;
-  try {
-    const res = await fetch(`/api/clients/${currentClientId}`, {method:'DELETE'});
-    const data = await res.json();
-    if (data.status === 'ok') {
-      showToast('Klient vymazaný');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('clientModal')).hide();
-      loadClients();
-    } else {
-      showToast(data.message, false);
-    }
-  } catch(e) { showToast('Chyba pri mazaní', false); }
-});
+// (edit/delete handled by cdEditBtn/cdDeleteBtn in sidebar)
 
 // Save client
 document.getElementById('btnSaveClient')?.addEventListener('click', async () => {
@@ -1544,7 +1604,11 @@ document.getElementById('btnSaveClient')?.addEventListener('click', async () => 
     if (data.status === 'ok') {
       showToast(editId ? 'Klient aktualizovaný' : 'Klient pridaný');
       bootstrap.Modal.getOrCreateInstance(document.getElementById('addClientModal')).hide();
-      loadClients();
+      await loadClients();
+      // If we were editing an existing client, refresh their detail view
+      if (editId && document.getElementById('pageClientDetail')?.classList.contains('active')) {
+        openClientDetail(parseInt(editId));
+      }
     } else {
       showToast(data.message, false);
     }

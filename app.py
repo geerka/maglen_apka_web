@@ -51,9 +51,9 @@ def init_db():
     cur.execute('SELECT COUNT(*) as cnt FROM trainers')
     if cur.fetchone()['cnt'] == 0:
         trainers = [
-            ('Robert','Robert@maglen.sk','0900 111 222','Fyzio','R'),
-            ('Michal','Michal@maglen.sk','0900 333 444','Silový tréning','M'),
-            ('Petra','petra@maglen.sk','0900 555 666','Tabata & HIIT','P'),
+            ('Martin Kováč','martin@maglen.sk','0900 111 222','Silový tréning','MK'),
+            ('Jana Horáková','jana@maglen.sk','0900 333 444','Výživa & Fitness','JH'),
+            ('Tomáš Bielik','tomas@maglen.sk','0900 555 666','CrossFit & HIIT','TB'),
         ]
         cur.executemany('INSERT INTO trainers (name,email,phone,specialization,avatar) VALUES (?,?,?,?,?)', trainers)
 
@@ -64,7 +64,7 @@ def init_db():
             ('Petra Novotná','petra@example.sk','0911 200 300','1990-07-22','Naberanie svalov','Tr. Plán B','PN',2,62.0,168.0,18.5,'','active'),
             ('Lukáš Šimko','lukas@example.sk','0911 300 400','1992-11-05','Kondícia','Tr. Plán C','LŠ',1,78.0,176.0,16.2,'Bolesti chrbta','active'),
             ('Mária Kováčová','maria@example.sk','0911 400 500','1988-04-30','Rehabilitácia','Tr. Plán A','MK',3,58.5,162.0,22.3,'','active'),
-            ('Jakub Mužík','jakub@example.sk','0911 500 600','1995-09-18','Výkon','Tr. Plán D','JH',2,85.0,185.0,12.8,'Závodný pretekár','active'),
+            ('Jakub Horváth','jakub@example.sk','0911 500 600','1995-09-18','Výkon','Tr. Plán D','JH',2,85.0,185.0,12.8,'Závodný pretekár','active'),
             ('Zuzana Blaho','zuzana@example.sk','0911 600 700','1993-02-14','Chudnutie','Tr. Plán A','ZB',3,70.0,165.0,28.4,'','active'),
         ]
         cur.executemany('''INSERT INTO clients
