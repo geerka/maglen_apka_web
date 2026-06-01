@@ -887,6 +887,10 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
   transition: border-color .15s, box-shadow .15s, transform .15s;
   box-shadow: var(--shadow);
 }
+.client-card.is-selected {
+  border-color: var(--blue);
+  box-shadow: 0 6px 20px rgba(47,127,191,.18);
+}
 .client-card:hover { border-color: var(--blue); box-shadow: 0 6px 20px rgba(47,127,191,.14); transform: translateY(-2px); }
 
 .client-card-header { display: flex; align-items: center; gap: 13px; margin-bottom: 13px; }
