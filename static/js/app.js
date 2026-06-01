@@ -1377,6 +1377,84 @@ async function loadGymOverview() {
 let allClients = [];
 let allTrainers = [];
 let currentClientId = null;
+const SELECTED_CLIENT_KEY = 'selected_client_id';
+const CLIENT_VIEW_KEY = 'client_view';
+
+function getStoredClientId() {
+  try {
+    const raw = localStorage.getItem(SELECTED_CLIENT_KEY);
+    if (!raw) return null;
+    const id = parseInt(raw, 10);
+    return Number.isFinite(id) ? id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setStoredClientId(id) {
+  try {
+    if (id) {
+      localStorage.setItem(SELECTED_CLIENT_KEY, String(id));
+    } else {
+      localStorage.removeItem(SELECTED_CLIENT_KEY);
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
+function getStoredClientView() {
+  try {
+    return localStorage.getItem(CLIENT_VIEW_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function setStoredClientView(view) {
+  try {
+    if (view) {
+      localStorage.setItem(CLIENT_VIEW_KEY, view);
+    } else {
+      localStorage.removeItem(CLIENT_VIEW_KEY);
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
+function clearStoredClientSelection() {
+  setStoredClientId(null);
+  setStoredClientView(null);
+}
+
+function markSelectedClientCard() {
+  document.querySelectorAll('.client-card').forEach(card => {
+    const cardId = parseInt(card.dataset.id, 10);
+    card.classList.toggle('is-selected', !!currentClientId && cardId === currentClientId);
+  });
+}
+
+function restoreClientSelection() {
+  const storedId = getStoredClientId();
+  if (!storedId) {
+    currentClientId = null;
+    markSelectedClientCard();
+    return;
+  }
+  const exists = allClients.find(x => x.id === storedId);
+  if (!exists) {
+    clearStoredClientSelection();
+    currentClientId = null;
+    markSelectedClientCard();
+    return;
+  }
+  currentClientId = storedId;
+  markSelectedClientCard();
+  if (getStoredClientView() === 'detail') {
+    openClientDetail(storedId);
+  }
+}
 
 async function loadClients() {
   try {
@@ -1387,6 +1465,7 @@ async function loadClients() {
     allTrainers = tData.trainers || [];
     renderClientCards(allClients);
     document.getElementById('clientCount').textContent = `${allClients.length} klientov celkom`;
+    restoreClientSelection();
   } catch(e) {
     console.error('Load clients error', e);
   }
@@ -1418,6 +1497,7 @@ function renderClientCards(clients) {
       </div>
     </div>
   `).join('');
+  markSelectedClientCard();
 }
 
 // Search
@@ -1438,6 +1518,9 @@ function openClientDetail(id) {
   const c = allClients.find(x => x.id === id);
   if (!c) return;
   currentClientId = id;
+  setStoredClientId(id);
+  setStoredClientView('detail');
+  markSelectedClientCard();
 
   // Populate sidebar
   document.getElementById('cdAvatar').textContent   = c.avatar || c.name.slice(0,2).toUpperCase();
@@ -1524,6 +1607,7 @@ document.querySelectorAll('#cdVyzivTab .vyzip-subtab').forEach(btn => {
 
 // Back button
 document.getElementById('cdBackBtn')?.addEventListener('click', () => {
+  setStoredClientView('list');
   switchPage('klienti');
 });
 
@@ -1557,6 +1641,8 @@ document.getElementById('cdDeleteBtn')?.addEventListener('click', async () => {
     const data = await res.json();
     if (data.status === 'ok') {
       showToast('Klient vymazaný');
+      clearStoredClientSelection();
+      currentClientId = null;
       switchPage('klienti');
     } else { showToast(data.message, false); }
   } catch(e) { showToast('Chyba pri mazaní', false); }
